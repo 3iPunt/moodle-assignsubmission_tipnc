@@ -24,9 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026091101;                    // Plugin version (format YYYYMMDDXX).
+$plugin->version   = 2026110500;                    // Plugin version (format YYYYMMDDXX).
 $plugin->requires  = 2024100700;                    // Minimum Moodle version: 4.5.
 $plugin->supported = [405, 501];                    // Supported Moodle branches: 4.5 to 5.1.
 $plugin->component = 'assignsubmission_tipnc';      // Full Frankenstyle plugin name.
 $plugin->maturity  = MATURITY_STABLE;               // Production-ready release.
-$plugin->release   = '2.0.1';                       // Semantic version (Major.Minor.Patch).
+$plugin->release   = '2.1.0';                       // Semantic version (Major.Minor.Patch).

@@ -52,6 +52,7 @@ class enunciate_block implements renderable, templatable {
      * @param document_viewer|null $viewer How the document is shown, when it is shown.
      * @param moodle_url|null $prepareurl Where to ask for the document to be made,
      *                                    only for whoever is allowed to ask.
+     * @param bool        $preparing   The brief of a restored assignment is being copied.
      */
     public function __construct(
         /** @var string Address of the document, empty when there is none. */
@@ -67,7 +68,9 @@ class enunciate_block implements renderable, templatable {
         /** @var ?document_viewer How the document is shown, when it is shown. */
         private readonly ?document_viewer $viewer = null,
         /** @var ?moodle_url Where to ask for the document to be made,. */
-        private readonly ?moodle_url $prepareurl = null
+        private readonly ?moodle_url $prepareurl = null,
+        /** @var bool The brief of a restored assignment is being copied. */
+        private readonly bool $preparing = false
     ) {
     }
 
@@ -78,6 +81,7 @@ class enunciate_block implements renderable, templatable {
      * @param  bool $embed      Show the document, or just link to it.
      * @param  moodle_url|null $prepareurl Where to ask for the brief to be made.
      * @param  bool $canedit    Whether this person may write in it.
+     * @param  bool $preparing  The brief of a restored assignment is being copied.
      * @return self The block.
      * @throws dml_exception If the configuration cannot be read.
      */
@@ -85,7 +89,8 @@ class enunciate_block implements renderable, templatable {
         int $assignment,
         bool $embed = true,
         ?moodle_url $prepareurl = null,
-        bool $canedit = false
+        bool $canedit = false,
+        bool $preparing = false
     ): self {
         global $USER;
 
@@ -115,7 +120,8 @@ class enunciate_block implements renderable, templatable {
             $embed,
             $model->frame_height_class(),
             $viewer,
-            $prepareurl
+            $prepareurl,
+            $preparing
         );
     }
 
@@ -141,6 +147,7 @@ class enunciate_block implements renderable, templatable {
 
             // Whoever can fix it sees the diagnosis and the button; whoever cannot,
             // a sentence telling them what is happening and who to tell.
+            'preparing' => !$ready && $this->preparing,
             'canprepare' => $this->prepareurl !== null,
             'prepareurl' => $this->prepareurl?->out(false),
             'frametitle' => get_string('enunciate_frametitle', 'assignsubmission_tipnc'),

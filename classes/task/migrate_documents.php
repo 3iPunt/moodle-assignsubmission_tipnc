@@ -51,7 +51,7 @@ class migrate_documents extends adhoc_task {
 
         $folder = trim((string) get_config('assignsubmission_tipnc', 'folder'), '/');
         if ($folder === '') {
-            mtrace('assignsubmission_tipnc: sin carpeta configurada, nada que mover.');
+            mtrace('assignsubmission_tipnc: no folder configured, nothing to move.');
             return;
         }
 
@@ -92,7 +92,7 @@ class migrate_documents extends adhoc_task {
             $DB->update_record($table, $row);
         }
 
-        mtrace("assignsubmission_tipnc: documentos movidos: $moved, con problemas: $failed.");
+        mtrace("assignsubmission_tipnc: documents moved: $moved, with problems: $failed.");
     }
 
     /**

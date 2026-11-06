@@ -24,7 +24,9 @@
 
 namespace assignsubmission_tipnc\models;
 
+use assign;
 use assignsubmission_tipnc\api\document;
+use context_module;
 use dml_exception;
 use stdClass;
 
@@ -128,6 +130,7 @@ class documents {
         }
 
         return (object) [
+            'submission' => $submission,
             'mode' => $submitted ? document::MODE_SUBMISSION : document::MODE_OPEN,
             'ncid' => (int) $row->ncid,
 
@@ -136,6 +139,74 @@ class documents {
             'path' => (string) ($row->path ?? ''),
             'timemodified' => (int) $submission->timemodified,
         ];
+    }
+
+    /**
+     * Whether a person may still write in their own draft.
+     *
+     * The same rule mod_assign uses for the form: locked, past the cut-off date,
+     * already submitted or without the capability means read only.
+     *
+     * @param  int $instance Assignment instance.
+     * @param  int $userid   Whose draft.
+     * @return bool True while the submission is open for them.
+     * @throws dml_exception If the assignment cannot be read.
+     */
+    public function can_write_draft(int $instance, int $userid): bool {
+        return self::assign_of($instance)->can_edit_submission($userid, $userid);
+    }
+
+    /**
+     * Whether a save from the editor may be written into a document.
+     *
+     * Saves come in with the service account, so locking the share in NextCloud
+     * does not stop them: a draft only takes them while its submission is open.
+     * The brief and the frozen copies are not drafts and are not affected.
+     *
+     * @param  string $path Path of the document being saved.
+     * @return bool False only for a draft whose submission is closed.
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public function accepts_saves(string $path): bool {
+        global $DB;
+
+        $row = $DB->get_record('assignsubmission_tipnc_open', ['path' => $path], 'assignment, submission', IGNORE_MULTIPLE);
+        if (!$row) {
+            return true;
+        }
+
+        $submission = $DB->get_record('assign_submission', ['id' => $row->submission]);
+        if (!$submission) {
+            return true;
+        }
+
+        $userid = (int) $submission->userid;
+        if ($userid === 0 && !empty($submission->groupid)) {
+            $members = groups_get_members((int) $submission->groupid, 'u.id', 'u.id ASC');
+            $userid = $members ? (int) reset($members)->id : 0;
+        }
+        if ($userid === 0) {
+            return true;
+        }
+
+        return self::assign_of((int) $row->assignment)->submissions_open($userid, false, $submission);
+    }
+
+    /**
+     * The mod_assign object of an instance.
+     *
+     * @param  int $instance Assignment instance.
+     * @return assign The assignment.
+     * @throws dml_exception If the assignment cannot be read.
+     */
+    private static function assign_of(int $instance): assign {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/assign/locallib.php');
+
+        $cm = get_coursemodule_from_instance('assign', $instance, 0, false, MUST_EXIST);
+
+        return new assign(context_module::instance($cm->id), $cm, null);
     }
 
     /**

@@ -45,10 +45,10 @@ class document {
     public const PREFIX_SUBMISSION = 'subm_';
 
     /** @var string What stands for a group where an account name would go. */
-    public const PREFIX_GROUP = 'grupo';
+    public const PREFIX_GROUP = 'group';
 
     /** @var string Owner of a submission that belongs to nobody findable. */
-    public const UNKNOWN_OWNER = 'desconocido';
+    public const UNKNOWN_OWNER = 'unknown';
 
     /** @var string The brief, as asked for by a caller. */
     public const MODE_ENUN = 'enun';
@@ -323,7 +323,7 @@ class document {
         $clean = trim(preg_replace('/\s+/u', ' ', $clean), " .\t\n\r\0\x0B");
         $clean = core_text::substr($clean, 0, self::NAME_LIMIT);
 
-        return trim($clean, ' .') !== '' ? trim($clean, ' .') : 'sin nombre';
+        return trim($clean, ' .') !== '' ? trim($clean, ' .') : 'unnamed';
     }
 
     /**

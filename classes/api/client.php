@@ -97,12 +97,9 @@ class client {
         $url = $this->host . '/' . ltrim($path, '/');
         $context = $options['context'] ?? [];
 
-        // With no address, account or password there is nobody to call. Going
-        // out anyway produced a request to a URL with no host, and the log said
-        // "the server does not answer", which sends you to look at NextCloud
-        // when what is missing is in the Moodle settings.
+        // Without address, account or password nothing is called: it is logged as configuration.
         if (!$this->is_configured()) {
-            $answer = new http_response(0, '', 0, 'sin configurar');
+            $answer = new http_response(0, '', 0, get_string('log_not_configured', 'assignsubmission_tipnc'));
 
             if (($options['log'] ?? true) !== false) {
                 logger::record(

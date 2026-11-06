@@ -22,8 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use assignsubmission_tipnc\api\nextcloud;
 use assignsubmission_tipnc\log\code;
+use assignsubmission_tipnc\task\create_enunciate;
 use assignsubmission_tipnc\tipnc_enun;
 
 require_once(__DIR__ . '/../../../../config.php');
@@ -51,7 +51,8 @@ if (tipnc_enun::get((int) $cm->instance)) {
     );
 }
 
-$response = (new nextcloud((int) $cm->instance))->teacher_create();
+// A restored assignment gets back the brief it came with, if it may.
+$response = create_enunciate::prepare((int) $cm->instance, (int) $USER->id);
 
 if (!$response->success) {
     redirect(

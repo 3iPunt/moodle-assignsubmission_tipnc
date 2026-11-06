@@ -27,6 +27,7 @@ namespace assignsubmission_tipnc\editor;
 use assignsubmission_tipnc\api\nextcloud;
 use assignsubmission_tipnc\log\code;
 use assignsubmission_tipnc\log\logger;
+use assignsubmission_tipnc\models\documents;
 use assignsubmission_tipnc\models\sessions;
 use core\http_client;
 use dml_exception;
@@ -78,13 +79,17 @@ class callback {
         die();
     }
 
+    /** @var string[] Claims only Moodle puts in its own tokens. */
+    private const MOODLE_CLAIMS = ['use', 'document', 'editorConfig'];
+
     /**
-     * The body of the request, if it can be trusted.
+     * What the editor said, taken only from what it signed.
      *
-     * @return array|null What the editor said, or null when it cannot be trusted.
+     * @param  string $expectedkey Key of the session the address was issued for.
+     * @return array|null The signed callback, or null when it cannot be trusted.
      * @throws dml_exception If the configuration cannot be read.
      */
-    public static function body(): ?array {
+    public static function body(string $expectedkey): ?array {
         $raw = file_get_contents('php://input');
         if ($raw === false || $raw === '') {
             return null;
@@ -95,8 +100,6 @@ class callback {
             return null;
         }
 
-        // The editor signs its message with the same secret: that is what tells
-        // its call apart from anyone who has seen the address go by.
         $signature = $body['token'] ?? self::bearer();
         if (!is_string($signature) || $signature === '') {
             return null;
@@ -107,8 +110,65 @@ class callback {
             return null;
         }
 
-        // What is signed prevails over whatever comes loose in the body.
-        return array_merge($body, $verified['payload'] ?? $verified);
+        // A token in the header wraps the body in a payload claim.
+        $signed = is_array($verified['payload'] ?? null) ? $verified['payload'] : $verified;
+
+        return self::is_editor_callback($signed, $expectedkey) ? $signed : null;
+    }
+
+    /**
+     * Whether a signed payload is a callback of the editor for this session.
+     *
+     * Moodle signs its own tokens with the same secret and hands them to anyone
+     * who opens a document, so a valid signature alone proves nothing.
+     *
+     * @param  array  $signed      The verified payload.
+     * @param  string $expectedkey Key of the session the address was issued for.
+     * @return bool True when it is the editor talking about this session.
+     */
+    public static function is_editor_callback(array $signed, string $expectedkey): bool {
+        foreach (self::MOODLE_CLAIMS as $claim) {
+            if (array_key_exists($claim, $signed)) {
+                return false;
+            }
+        }
+
+        if (!isset($signed['key'], $signed['status']) || $expectedkey === '') {
+            return false;
+        }
+
+        return hash_equals($expectedkey, (string) $signed['key']);
+    }
+
+    /**
+     * Whether an address belongs to the configured Document Server.
+     *
+     * @param  string $url Address the editor says the result is at.
+     * @return bool True when scheme, host and port match the configured server.
+     * @throws dml_exception If the configuration cannot be read.
+     */
+    public static function is_from_docserver(string $url): bool {
+        $origin = self::origin($url);
+
+        return $origin !== '' && $origin === self::origin(token::server_url());
+    }
+
+    /**
+     * Scheme, host and port of an address, normalised for comparison.
+     *
+     * @param  string $url The address.
+     * @return string The origin, empty when the address has no scheme or host.
+     */
+    private static function origin(string $url): string {
+        $parts = parse_url($url);
+        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            return '';
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
     }
 
     /**
@@ -129,7 +189,7 @@ class callback {
      * @param  string $url      Where the editor left the result.
      * @param  int    $status   State the editor reported.
      * @param  string $key      Key of the session that is saving.
-     * @return bool True when the document is stored.
+     * @return bool True when the document is stored, or discarded on purpose.
      * @throws dml_exception If the incident cannot be recorded.
      */
     public static function store(
@@ -146,6 +206,24 @@ class callback {
             'documentpath' => $path,
             'requesturl' => $url,
         ];
+
+        // Moodle fetches nothing but what the Document Server serves.
+        if (!self::is_from_docserver($url)) {
+            logger::error(code::SAVE_FOREIGN_SOURCE, $context['operation'], $context);
+
+            return false;
+        }
+
+        // An editor opened before the submission closed keeps saving. It is
+        // acknowledged, so the Document Server does not retry, and discarded.
+        if (!(new documents())->accepts_saves($path)) {
+            logger::warning(code::SAVE_CLOSED, $context['operation'], $context);
+
+            // The editor's cached copy holds the discarded text: the next opening reads the file.
+            (new sessions())->retire($key);
+
+            return true;
+        }
 
         try {
             $content = (new http_client(['timeout' => self::TIMEOUT]))->get($url)->getBody()->getContents();
@@ -172,15 +250,18 @@ class callback {
             return false;
         }
 
-        // The document has just changed, but it was changed by the session that
-        // is still open: the new date is noted and its key is left alone, or the
-        // next render would mint a new one and leave nobody to ask to save.
-        (new sessions())->note_save($key, $nextcloud->modified_time($path));
+        // A forced save keeps the open session's key; a closed session's key is
+        // dropped, because the editor would serve its cached copy under it.
+        if ($status === self::STATUS_FORCED) {
+            (new sessions())->note_save($key, $nextcloud->modified_time($path));
+        } else {
+            (new sessions())->retire($key);
+        }
 
         // A save that goes well is logged too: it is the proof that what is in
         // NextCloud is what the person wrote, and when.
         logger::info(code::OK, $context['operation'], array_merge($context, [
-            'responsebody' => 'Guardado ' . strlen($content) . ' bytes.',
+            'responsebody' => get_string('log_save_ok', 'assignsubmission_tipnc', strlen($content)),
         ]));
 
         return true;

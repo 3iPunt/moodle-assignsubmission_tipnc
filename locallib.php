@@ -230,6 +230,9 @@ class assign_submission_tipnc extends assign_submission_plugin {
             return $this->freeze($submission);
         }
 
+        // What is in the open editor counts as saved from this moment.
+        (new nextcloud($submission->assignment))->save_draft($submission);
+
         return true;
     }
 
@@ -663,7 +666,10 @@ class assign_submission_tipnc extends assign_submission_plugin {
     }
 
     /**
-     * The assignment has been deleted - cleanup
+     * Removes the submissions, on deletion and on course reset alike.
+     *
+     * The brief stays: a reset keeps the assignment. The observer removes it once
+     * the assignment is really gone.
      *
      * @return bool
      * @throws moodle_exception
@@ -672,10 +678,9 @@ class assign_submission_tipnc extends assign_submission_plugin {
         $instance = (int) $this->assignment->get_instance()->id;
 
         try {
-            (new cleanup())->on_assignment_deleted($instance);
-            tipnc::delete($this->assignment->get_instance()->id);
-            tipnc_enun::delete($this->assignment->get_instance()->id);
-            tipnc_open::delete($this->assignment->get_instance()->id);
+            (new cleanup())->on_submissions_deleted($instance);
+            tipnc::delete($instance);
+            tipnc_open::delete($instance);
             return true;
         } catch (moodle_exception $e) {
             tipnc_error::log(

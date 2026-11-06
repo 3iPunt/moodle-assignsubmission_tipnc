@@ -132,6 +132,95 @@ final class provider_test extends \mod_assign\tests\provider_testcase {
 
         // And what a reviewer really looks at: that data leaves for another system.
         $this->assertContains('nextcloud', $names);
+        $this->assertContains('docserver', $names);
+    }
+
+    /**
+     * A teacher with no submission who appears in the log.
+     *
+     * @return stdClass The teacher.
+     */
+    private function teacher_in_the_log(): stdClass {
+        global $DB;
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'editingteacher');
+
+        $DB->insert_record('assignsubmission_tipnc_log', (object) [
+            'severity' => 'warning',
+            'traceid' => 'def',
+            'operation' => 'share_enunciate',
+            'method' => 'test',
+            'errorcode' => '0302',
+            'assignment' => $this->assign->get_instance()->id,
+            'userid' => $teacher->id,
+            'documentpath' => 'tasks/enun_x.docx',
+            'occurrences' => 1,
+            'firstseen' => time(),
+            'lastseen' => time(),
+            'timecreated' => time(),
+        ]);
+
+        return $teacher;
+    }
+
+    /**
+     * Whoever appears in the log is found, even without a submission.
+     *
+     * @return void
+     */
+    public function test_people_in_the_log_are_found_without_a_submission(): void {
+        $teacher = $this->teacher_in_the_log();
+        $context = $this->assign->get_context();
+
+        $contexts = provider::get_contexts_for_userid((int) $teacher->id)->get_contextids();
+        $this->assertContains((int) $context->id, array_map('intval', $contexts));
+
+        $userlist = new userlist($context, 'assignsubmission_tipnc');
+        provider::get_users_in_context($userlist);
+        $this->assertContains((int) $teacher->id, array_map('intval', $userlist->get_userids()));
+    }
+
+    /**
+     * Their entries of the log are handed over in the assignment.
+     *
+     * @return void
+     */
+    public function test_the_log_is_exported(): void {
+        $teacher = $this->teacher_in_the_log();
+        $context = $this->assign->get_context();
+
+        provider::export_user_data(
+            new \core_privacy\local\request\approved_contextlist($teacher, 'assignsubmission_tipnc', [$context->id])
+        );
+
+        $writer = \core_privacy\local\request\writer::with_context($context);
+        $data = $writer->get_data([
+            get_string('pluginname', 'assignsubmission_tipnc'),
+            get_string('privacy:export:log', 'assignsubmission_tipnc'),
+        ]);
+
+        $this->assertCount(1, $data->entries);
+        $this->assertSame('tasks/enun_x.docx', $data->entries[0]->document);
+    }
+
+    /**
+     * Forgetting them removes their entries and nobody else's.
+     *
+     * @return void
+     */
+    public function test_the_log_of_a_person_without_submission_is_forgotten(): void {
+        global $DB;
+
+        $this->give_them_documents();
+        $teacher = $this->teacher_in_the_log();
+        $context = $this->assign->get_context();
+
+        provider::delete_data_for_user(
+            new \core_privacy\local\request\approved_contextlist($teacher, 'assignsubmission_tipnc', [$context->id])
+        );
+
+        $this->assertFalse($DB->record_exists('assignsubmission_tipnc_log', ['userid' => $teacher->id]));
+        $this->assertTrue($DB->record_exists('assignsubmission_tipnc_log', ['userid' => $this->student->id]));
     }
 
     /**
@@ -284,7 +373,7 @@ final class provider_test extends \mod_assign\tests\provider_testcase {
 
         $enun = $DB->get_record('assignsubmission_tipnc_enun', ['assignment' => $assignid]);
 
-        $this->assertNotFalse($enun, 'El enunciado es de la tarea, no de una persona.');
+        $this->assertNotFalse($enun, 'The brief belongs to the assignment, not to a person.');
         $this->assertSame(0, (int) $enun->userid);
     }
 }

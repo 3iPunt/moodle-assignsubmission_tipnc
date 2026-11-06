@@ -21,8 +21,9 @@
  * session ends —or when a save is forced— the Document Server calls here with the
  * address of the result, and Moodle stores it in NextCloud.
  *
- * Two signatures have to agree: ours, in the address, which names the document;
- * and the editor's, in the body, which proves the message comes from it.
+ * Two signatures have to agree: ours, in the address, which names the document and
+ * the editing session; and the editor's, in the body, which proves the message
+ * comes from it and is the only source of what to store.
  *
  * @package    assignsubmission_tipnc
  * @copyright  2026 3iPunt (contacte@tresipunt.com)
@@ -33,25 +34,27 @@ define('NO_MOODLE_COOKIES', true);
 
 require_once(__DIR__ . '/../../../../config.php');
 
-use assignsubmission_tipnc\api\nextcloud;
 use assignsubmission_tipnc\editor\callback;
 use assignsubmission_tipnc\editor\token;
 
 $signature = required_param('token', PARAM_RAW);
 $payload = token::verify($signature);
 
-if ($payload === null || ($payload['use'] ?? '') !== 'callback') {
+// Only an address issued for an editing session can write back.
+if ($payload === null || ($payload['use'] ?? '') !== 'callback' || ($payload['mode'] ?? '') !== 'edit') {
     callback::answer(callback::ERROR_FORBIDDEN);
 }
 
 $instance = (int) ($payload['instance'] ?? 0);
 $path = (string) ($payload['path'] ?? '');
+$key = (string) ($payload['key'] ?? '');
 
-if ($instance === 0 || $path === '') {
+if ($instance === 0 || $path === '' || $key === '') {
     callback::answer(callback::ERROR_FORBIDDEN);
 }
 
-$body = callback::body();
+// Status and address come only from what the editor signed for this session.
+$body = callback::body($key);
 if ($body === null) {
     callback::answer(callback::ERROR_FORBIDDEN);
 }
@@ -67,14 +70,7 @@ if ($url === '') {
     callback::answer(callback::ERROR_SAVE);
 }
 
-// The key travels signed inside the token: that is what tells us whoever
-// saves is the session Moodle opened, and not to renew it underneath.
-$stored = callback::store(
-    $instance,
-    $path,
-    $url,
-    (int) $body['status'],
-    (string) ($payload['key'] ?? '')
-);
+// The key tells us the saving session is the one Moodle opened.
+$stored = callback::store($instance, $path, $url, (int) $body['status'], $key);
 
 callback::answer($stored ? callback::OK : callback::ERROR_SAVE);

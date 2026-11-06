@@ -1,7 +1,7 @@
 <h1 align="center">NextCloud Submission</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.1-informational" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.0-informational" alt="Version">
   <a href="https://moodle.org"><img src="https://img.shields.io/badge/Moodle-4.5%20--%205.1-orange?logo=moodle" alt="Moodle"></a>
   <img src="https://img.shields.io/badge/Workplace-4.5%2B-blue" alt="Moodle Workplace">
   <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white" alt="PHP">
@@ -40,8 +40,11 @@ assignments where it is not enabled.
 - **Group assignments and re-attempts** — one document per group when the
   assignment works that way, and one per attempt when the teacher reopens it.
 - **Access granted as people arrive, and withdrawn when they leave** — anybody
-  who can open the assignment in Moodle gets access to the document; losing the
-  role or the enrolment takes it away.
+  who can open the assignment in Moodle gets access to the document; losing a
+  role or an enrolment in the course takes it away (see the limitations below).
+- **Backup, restore, import and duplication** — the brief travels with the
+  assignment, and with user data so do each student's draft and submission. They
+  are copied in NextCloud, so two assignments never write in the same document.
 - **It says so when the service is down** — if NextCloud does not answer, the
   assignment explains it in plain words and refuses the submission instead of
   accepting work that was never saved.
@@ -105,11 +108,31 @@ than leaving the work —with the person's name in it— in the other system.
   is the document as the teacher left it, not as the student handed it in. Sites
   that need to be able to prove exactly what was submitted should turn on
   **file versioning in NextCloud**, which keeps the previous revisions.
+- **A closed submission is read only.** Once the submission is locked, past its
+  cut-off date or handed in, the draft opens read only, and the embedded editor
+  cannot save into it any more. With the embedded editor, what counts is what was
+  saved («Save changes») or handed in before the submission closed: text still
+  open in the editor at that moment is not kept.
 - **Deletion is a choice, not a default.** Deleting a submission or an assignment
   in Moodle leaves the documents in NextCloud unless the administrator asks
   otherwise: a deletion here would be irreversible for the other system.
+  Resetting the course removes the submissions and keeps the brief.
+- **No document is ever written over.** If a name is already taken in NextCloud
+  —a kept document of a removed submission, or last year's after a reset— the
+  new document gets a numbered name and the old one stays untouched.
+- **Restored documents are only copied when they can be trusted.** A document in a
+  backup is copied if it is one of this site's documents and the person restoring
+  could have backed up its assignment. Otherwise the brief starts from the
+  template and the drafts are not copied, and the incident log says so.
 - Everything the plugin does against NextCloud is written to an **incident log**
   with a code, kept for as long as the administrator says.
+
+### Limitations
+
+- **Losing one enrolment or one role withdraws all access in the course.** The
+  plugin does not check whether the person is still enrolled another way (for
+  example, by cohort as well as manually) or keeps another role. Their access to
+  their own documents comes back the next time they open the assignment.
 
 ### What the site needs, depending on how the document is shown
 

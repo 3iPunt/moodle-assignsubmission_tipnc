@@ -86,7 +86,6 @@ class config {
             ],
             'documentType' => self::document_type($path),
             'editorConfig' => [
-                'callbackUrl' => $this->callback_url($path, $key)->out(false),
                 'lang' => current_language(),
                 'mode' => $canedit ? 'edit' : 'view',
                 'user' => [
@@ -100,6 +99,11 @@ class config {
                 ],
             ],
         ];
+
+        // Whoever only reads gets no address to write back to.
+        if ($canedit) {
+            $config['editorConfig']['callbackUrl'] = $this->callback_url($path, $key)->out(false);
+        }
 
         $config['token'] = token::sign($config);
 
@@ -161,6 +165,7 @@ class config {
                 'path' => $path,
                 'key' => $key,
                 'use' => 'callback',
+                'mode' => self::MODE_EDIT,
             ], DAYSECS),
         ]);
     }

@@ -25,9 +25,12 @@
 namespace assignsubmission_tipnc\task;
 
 use assignsubmission_tipnc\api\nextcloud;
+use assignsubmission_tipnc\api\response;
 use assignsubmission_tipnc\log\code;
 use assignsubmission_tipnc\log\logger;
+use assignsubmission_tipnc\models\restored;
 use assignsubmission_tipnc\tipnc_enun;
+use coding_exception;
 use core\task\adhoc_task;
 use dml_exception;
 
@@ -65,7 +68,7 @@ class create_enunciate extends adhoc_task {
             return;
         }
 
-        $response = (new nextcloud($assignment))->teacher_create();
+        $response = self::prepare($assignment, (int) $this->get_userid());
 
         if (!$response->success) {
             logger::error(code::TASK_NOT_PREPARED, 'create_enunciate', [
@@ -75,6 +78,43 @@ class create_enunciate extends adhoc_task {
                 'responsebody' => get_string('log_enunciate_failed', 'assignsubmission_tipnc'),
             ]);
         }
+    }
+
+    /**
+     * Creates the brief: a copy of the one it came with, or the template.
+     *
+     * A restored or duplicated assignment carries the address of the brief of
+     * the original in its settings. It is copied only when it can be trusted;
+     * otherwise, or when the original is gone, the template is used.
+     *
+     * @param  int $assignment Assignment that needs a brief.
+     * @param  int $userid     Who asked for it, whose permissions decide the copy.
+     * @return response What NextCloud answered.
+     * @throws coding_exception If the context cannot be built.
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public static function prepare(int $assignment, int $userid): response {
+        $nextcloud = new nextcloud($assignment);
+        $source = tipnc_enun::remembered_path($assignment);
+
+        if ($source === '') {
+            return $nextcloud->teacher_create();
+        }
+
+        if (!(new restored())->may_copy($source, $userid)) {
+            logger::warning(code::RESTORE_REFUSED, 'restore_document', [
+                'method' => 'create_enunciate:prepare',
+                'assignment' => $assignment,
+                'documentpath' => $source,
+            ]);
+
+            return $nextcloud->teacher_create();
+        }
+
+        $response = $nextcloud->teacher_create($source);
+
+        // The original may have been deleted in NextCloud since the backup.
+        return $response->success ? $response : $nextcloud->teacher_create();
     }
 
     /**

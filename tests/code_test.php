@@ -59,8 +59,8 @@ final class code_test extends advanced_testcase {
             foreach (['en', 'es', 'ca'] as $language) {
                 $this->assertTrue(
                     $manager->string_exists('logcode_' . $codevalue, 'assignsubmission_tipnc'),
-                    'El código ' . $codevalue . ' no tiene texto: se vería como [[logcode_'
-                        . $codevalue . ']] en el registro.'
+                    'Code ' . $codevalue . ' has no text: it would show as [[logcode_'
+                        . $codevalue . ']] in the log.'
                 );
 
                 $text = $manager->get_string(
@@ -73,7 +73,7 @@ final class code_test extends advanced_testcase {
                 $this->assertNotSame(
                     '',
                     trim($text),
-                    'El código ' . $codevalue . ' tiene el texto vacío en ' . $language . '.'
+                    'Code ' . $codevalue . ' has an empty text in ' . $language . '.'
                 );
             }
         }
@@ -93,13 +93,13 @@ final class code_test extends advanced_testcase {
             $this->assertContains(
                 code::kind($codevalue),
                 $kinds,
-                'El código ' . $codevalue . ' no está clasificado.'
+                'Code ' . $codevalue . ' is not classified.'
             );
 
             $this->assertContains(
                 code::severity($codevalue),
                 $severities,
-                'El código ' . $codevalue . ' no tiene severidad.'
+                'Code ' . $codevalue . ' has no severity.'
             );
         }
     }
@@ -118,7 +118,7 @@ final class code_test extends advanced_testcase {
         foreach ([code::OK, code::SHARE_NO_ACCOUNT, code::SHARE_FAILED] as $codevalue) {
             $this->assertFalse(
                 code::is_system_failure($codevalue),
-                'El código ' . $codevalue . ' es de un documento, no del servicio.'
+                'Code ' . $codevalue . ' is about a document, not the service.'
             );
         }
     }
@@ -168,13 +168,13 @@ final class code_test extends advanced_testcase {
             }
         }
 
-        $this->assertNotEmpty($operations, 'No se ha encontrado ninguna operación que comprobar.');
+        $this->assertNotEmpty($operations, 'No operation was found to check.');
 
         foreach (array_keys($operations) as $operation) {
             $this->assertTrue(
                 $manager->string_exists('operation_' . $operation, 'assignsubmission_tipnc'),
-                'La operación ' . $operation . ' no tiene nombre: se vería como [[operation_'
-                    . $operation . ']] en el registro.'
+                'Operation ' . $operation . ' has no name: it would show as [[operation_'
+                    . $operation . ']] in the log.'
             );
         }
     }

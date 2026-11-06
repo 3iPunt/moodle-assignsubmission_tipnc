@@ -67,7 +67,7 @@ final class document_test extends advanced_testcase {
         $this->course = $this->getDataGenerator()->create_course(['shortname' => 'TIPNCQA']);
         $this->assign = $this->getDataGenerator()->create_module(
             'assign',
-            ['course' => $this->course->id, 'name' => 'Tarea NC']
+            ['course' => $this->course->id, 'name' => 'NC assignment']
         );
         $this->student = $this->getDataGenerator()->create_user(['username' => 'alumno1']);
     }
@@ -140,7 +140,7 @@ final class document_test extends advanced_testcase {
 
         $path = $document->open_for($this->submission(['userid' => 0, 'groupid' => 12]));
 
-        $this->assertStringEndsWith('_grupo12.docx', $path);
+        $this->assertStringEndsWith('_group12.docx', $path);
         $this->assertStringNotContainsString('alumno1', $path);
     }
 
@@ -188,7 +188,7 @@ final class document_test extends advanced_testcase {
 
         $this->assertStringStartsWith('tasks/', $folder);
         $this->assertStringContainsString($this->course->id . ' - TIPNCQA', $folder);
-        $this->assertStringContainsString($this->assign->id . ' - Tarea NC', $folder);
+        $this->assertStringContainsString($this->assign->id . ' - NC assignment', $folder);
     }
 
     /**
@@ -200,7 +200,7 @@ final class document_test extends advanced_testcase {
         $course = $this->getDataGenerator()->create_course(['shortname' => 'A/B: "C" <D>']);
         $assign = $this->getDataGenerator()->create_module(
             'assign',
-            ['course' => $course->id, 'name' => 'Tarea con | tubería']
+            ['course' => $course->id, 'name' => 'Assignment with | pipe']
         );
 
         $folder = (new document($assign->id))->assignment_folder();
@@ -209,7 +209,7 @@ final class document_test extends advanced_testcase {
             $this->assertStringNotContainsString(
                 $forbidden,
                 substr($folder, strlen('tasks/')),
-                'El nombre de carpeta conserva un carácter que WebDAV no admite: ' . $forbidden
+                'The folder name keeps a character WebDAV does not accept: ' . $forbidden
             );
         }
     }
@@ -229,11 +229,11 @@ final class document_test extends advanced_testcase {
             'assignment' => $this->assign->id,
             'submission' => $submission->id,
             'ncid' => 99,
-            'path' => 'donde/esta/de/verdad.docx',
+            'path' => 'where/it/really/is.docx',
         ]);
 
         $this->assertSame(
-            'donde/esta/de/verdad.docx',
+            'where/it/really/is.docx',
             (new document($this->assign->id))->open_path($submission)
         );
     }

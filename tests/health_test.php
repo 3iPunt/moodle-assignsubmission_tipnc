@@ -89,7 +89,7 @@ final class health_test extends advanced_testcase {
 
             $this->assertTrue(
                 health::is_down(),
-                'El código ' . $errorcode . ' debería marcar el servicio como caído.'
+                'Code ' . $errorcode . ' should mark the service as down.'
             );
         }
     }
@@ -107,7 +107,7 @@ final class health_test extends advanced_testcase {
 
             $this->assertFalse(
                 health::is_down(),
-                'El código ' . $errorcode . ' es de un documento, no del servicio.'
+                'Code ' . $errorcode . ' is about a document, not the service.'
             );
         }
     }

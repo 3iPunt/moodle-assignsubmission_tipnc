@@ -24,11 +24,18 @@
 
 namespace assignsubmission_tipnc\privacy;
 
+use assignsubmission_tipnc\log\code;
 use assignsubmission_tipnc\models\cleanup;
 use assignsubmission_tipnc\models\documents;
+use coding_exception;
+use context;
 use context_module;
+use context_system;
 use core_privacy\local\metadata\collection;
+use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
+use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use dml_exception;
@@ -45,14 +52,22 @@ use mod_assign\privacy\useridlist;
  * incident log keeps who did what and on which document, which is personal data
  * even though nobody thinks of a log that way.
  *
+ * mod_assign only calls its subplugins per submission, so the log is also handled
+ * as a plugin of its own: a teacher appears in it without a submission.
+ *
  * @package    assignsubmission_tipnc
  * @copyright  2026 3iPunt (contacte@tresipunt.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements
     \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider,
     \mod_assign\privacy\assignsubmission_provider,
     \mod_assign\privacy\assignsubmission_user_provider {
+    /** @var string Table of the incident log. */
+    private const LOG = 'assignsubmission_tipnc_log';
+
     /**
      * Everything this plugin stores or sends about a person.
      *
@@ -101,7 +116,230 @@ class provider implements
             'document' => 'privacy:metadata:nextcloud:document',
         ], 'privacy:metadata:nextcloud');
 
+        // The embedded editor is a second external system.
+        $collection->add_external_location_link('docserver', [
+            'userid' => 'privacy:metadata:docserver:userid',
+            'fullname' => 'privacy:metadata:docserver:fullname',
+            'document' => 'privacy:metadata:docserver:document',
+        ], 'privacy:metadata:docserver');
+
         return $collection;
+    }
+
+    /**
+     * Contexts where somebody appears in the incident log.
+     *
+     * @param  int $userid Whose contexts.
+     * @return contextlist The assignments they appear in, and the system for the rest.
+     */
+    public static function get_contexts_for_userid(int $userid): contextlist {
+        $contextlist = new contextlist();
+
+        $sql = "SELECT ctx.id
+                  FROM {" . self::LOG . "} l
+                  JOIN {course_modules} cm ON cm.instance = l.assignment
+                  JOIN {modules} m ON m.id = cm.module AND m.name = :modulename
+                  JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                 WHERE l.userid = :userid OR l.affecteduserid = :affected";
+
+        $contextlist->add_from_sql($sql, [
+            'modulename' => 'assign',
+            'contextlevel' => CONTEXT_MODULE,
+            'userid' => $userid,
+            'affected' => $userid,
+        ]);
+
+        $sql = "SELECT ctx.id
+                  FROM {context} ctx
+                 WHERE ctx.contextlevel = :contextlevel
+                   AND EXISTS (SELECT 1
+                                 FROM {" . self::LOG . "} l
+                                WHERE l.assignment IS NULL AND (l.userid = :userid OR l.affecteduserid = :affected))";
+
+        $contextlist->add_from_sql($sql, [
+            'contextlevel' => CONTEXT_SYSTEM,
+            'userid' => $userid,
+            'affected' => $userid,
+        ]);
+
+        return $contextlist;
+    }
+
+    /**
+     * People who appear in the incident log of a context.
+     *
+     * @param  userlist $userlist Where to add them.
+     * @return void
+     * @throws dml_exception If the assignment cannot be read.
+     */
+    public static function get_users_in_context(userlist $userlist): void {
+        $scope = self::log_scope($userlist->get_context());
+        if ($scope === null) {
+            return;
+        }
+
+        [$where, $params] = $scope;
+
+        foreach (['userid', 'affecteduserid'] as $field) {
+            $userlist->add_from_sql(
+                $field,
+                "SELECT $field FROM {" . self::LOG . "} WHERE $where AND $field IS NOT NULL",
+                $params
+            );
+        }
+    }
+
+    /**
+     * Hands over the incident log entries of one person.
+     *
+     * @param  approved_contextlist $contextlist Who and where.
+     * @return void
+     * @throws coding_exception If a language string is missing.
+     * @throws dml_exception If the log cannot be read.
+     */
+    public static function export_user_data(approved_contextlist $contextlist): void {
+        global $DB;
+
+        $userid = (int) $contextlist->get_user()->id;
+
+        foreach ($contextlist->get_contexts() as $context) {
+            $scope = self::log_scope($context);
+            if ($scope === null) {
+                continue;
+            }
+
+            [$where, $params] = $scope;
+            $params += ['userid' => $userid, 'affected' => $userid];
+
+            $rows = $DB->get_records_select(
+                self::LOG,
+                "$where AND (userid = :userid OR affecteduserid = :affected)",
+                $params,
+                'lastseen ASC'
+            );
+
+            if (!$rows) {
+                continue;
+            }
+
+            $entries = array_map(fn($row) => (object) [
+                'severity' => $row->severity,
+                'operation' => $row->operation,
+                'error' => code::describe((string) $row->errorcode),
+                'byyou' => transform::yesno((int) $row->userid === $userid),
+                'aboutyou' => transform::yesno((int) $row->affecteduserid === $userid),
+                'document' => $row->documentpath,
+                'requesturl' => $row->requesturl,
+                'httpcode' => $row->httpcode,
+                'response' => $row->responsebody,
+                'occurrences' => $row->occurrences,
+                'firstseen' => transform::datetime($row->firstseen),
+                'lastseen' => transform::datetime($row->lastseen),
+            ], array_values($rows));
+
+            writer::with_context($context)->export_data(
+                [get_string('pluginname', 'assignsubmission_tipnc'), get_string('privacy:export:log', 'assignsubmission_tipnc')],
+                (object) ['entries' => $entries]
+            );
+        }
+    }
+
+    /**
+     * Forgets the incident log of a whole context.
+     *
+     * @param  context $context The context.
+     * @return void
+     * @throws dml_exception If the log cannot be written.
+     */
+    public static function delete_data_for_all_users_in_context(context $context): void {
+        global $DB;
+
+        $scope = self::log_scope($context);
+        if ($scope === null) {
+            return;
+        }
+
+        [$where, $params] = $scope;
+        $DB->delete_records_select(self::LOG, $where, $params);
+    }
+
+    /**
+     * Forgets one person in the incident log of some contexts.
+     *
+     * @param  approved_contextlist $contextlist Who and where.
+     * @return void
+     * @throws dml_exception If the log cannot be written.
+     */
+    public static function delete_data_for_user(approved_contextlist $contextlist): void {
+        $userid = (int) $contextlist->get_user()->id;
+
+        foreach ($contextlist->get_contexts() as $context) {
+            self::forget_in_log($context, [$userid]);
+        }
+    }
+
+    /**
+     * Forgets several people in the incident log of one context.
+     *
+     * @param  approved_userlist $userlist Who and where.
+     * @return void
+     * @throws dml_exception If the log cannot be written.
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
+        self::forget_in_log($userlist->get_context(), $userlist->get_userids());
+    }
+
+    /**
+     * Removes the log entries where some people act or are affected.
+     *
+     * @param  context $context Where.
+     * @param  array   $userids Who.
+     * @return void
+     * @throws dml_exception If the log cannot be written.
+     */
+    private static function forget_in_log(context $context, array $userids): void {
+        global $DB;
+
+        $scope = self::log_scope($context);
+        if ($scope === null || !$userids) {
+            return;
+        }
+
+        [$where, $params] = $scope;
+
+        foreach (['userid', 'affecteduserid'] as $field) {
+            [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, $field);
+            $DB->delete_records_select(self::LOG, "$where AND $field $insql", $params + $inparams);
+        }
+    }
+
+    /**
+     * Which log entries belong to a context.
+     *
+     * @param  context $context An assignment, or the system for entries with no assignment.
+     * @return array|null [where, params], or null when the context holds no log.
+     * @throws dml_exception If the assignment cannot be read.
+     */
+    private static function log_scope(context $context): ?array {
+        global $DB;
+
+        if ($context instanceof context_system) {
+            return ['assignment IS NULL', []];
+        }
+
+        if (!$context instanceof context_module) {
+            return null;
+        }
+
+        $assignment = $DB->get_field_sql(
+            "SELECT cm.instance
+               FROM {course_modules} cm
+               JOIN {modules} m ON m.id = cm.module AND m.name = :modulename
+              WHERE cm.id = :cmid",
+            ['modulename' => 'assign', 'cmid' => $context->instanceid]
+        );
+
+        return $assignment ? ['assignment = :assignment', ['assignment' => (int) $assignment]] : null;
     }
 
     /**

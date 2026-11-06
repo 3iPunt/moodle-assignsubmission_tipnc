@@ -79,6 +79,9 @@ class code {
     /** @var string More access was granted than asked for: it had to be taken back. */
     public const SHARE_TOO_WIDE = '0304';
 
+    /** @var string The document to share does not exist, which is not a missing account. */
+    public const SHARE_NO_DOCUMENT = '0305';
+
     /** @var string The share could not be revoked. */
     public const UNSHARE_FAILED = '0401';
 
@@ -96,6 +99,12 @@ class code {
 
     /** @var string What the editor wrote could not be stored. */
     public const UPLOAD_FAILED = '0106';
+
+    /** @var string The editor pointed at a result outside the configured Document Server. */
+    public const SAVE_FOREIGN_SOURCE = '0107';
+
+    /** @var string A save reached a draft whose submission is closed and was discarded. */
+    public const SAVE_CLOSED = '0108';
 
     /** @var string NextCloud did not answer. */
     public const SYSTEM_UNREACHABLE = '0501';
@@ -121,6 +130,9 @@ class code {
     /** @var string The submission was frozen before the editor saved the changes. */
     public const SUBMIT_NOT_SAVED = '0702';
 
+    /** @var string A restored assignment brought a document that may not be copied. */
+    public const RESTORE_REFUSED = '0703';
+
     /**
      * Severity and kind of each code.
      *
@@ -135,12 +147,15 @@ class code {
         self::MOVE_FAILED         => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::DOWNLOAD_FAILED     => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::UPLOAD_FAILED       => [self::SEVERITY_ERROR, self::KIND_ITEM],
+        self::SAVE_FOREIGN_SOURCE => [self::SEVERITY_ERROR, self::KIND_CONFIG],
+        self::SAVE_CLOSED         => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::LOOKUP_FAILED       => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::LOOKUP_MALFORMED    => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::SHARE_FAILED        => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::SHARE_NO_ACCOUNT    => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::SHARE_PERMISSIONS   => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::SHARE_TOO_WIDE      => [self::SEVERITY_ERROR, self::KIND_ITEM],
+        self::SHARE_NO_DOCUMENT   => [self::SEVERITY_ERROR, self::KIND_ITEM],
         self::UNSHARE_FAILED      => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::DELETE_FAILED       => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::SYSTEM_UNREACHABLE  => [self::SEVERITY_ERROR, self::KIND_SYSTEM],
@@ -151,6 +166,7 @@ class code {
         self::CONFIG_NO_TEMPLATE  => [self::SEVERITY_ERROR, self::KIND_CONFIG],
         self::TASK_NOT_PREPARED   => [self::SEVERITY_WARNING, self::KIND_ITEM],
         self::SUBMIT_NOT_SAVED    => [self::SEVERITY_ERROR, self::KIND_ITEM],
+        self::RESTORE_REFUSED     => [self::SEVERITY_WARNING, self::KIND_ITEM],
     ];
 
     /**

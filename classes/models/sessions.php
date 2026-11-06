@@ -92,8 +92,7 @@ class sessions {
         [$table, $record] = $this->find($ncid);
 
         if ($record === null) {
-            // A document that is not recorded still opens, but its session is not
-            // sobrevive a la recarga: es preferible a no poder abrirlo.
+            // An unrecorded document still opens, with a session that does not survive a reload.
             return self::mint();
         }
 
@@ -143,6 +142,29 @@ class sessions {
         foreach (self::TABLES as $table) {
             if ($DB->record_exists($table, ['editorkey' => $key])) {
                 $DB->set_field($table, 'editorversion', $version, ['editorkey' => $key]);
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * Drops the key of a session that has ended, so the next opening gets a new one.
+     *
+     * @param  string $key Key of the session that ended.
+     * @return void
+     * @throws dml_exception If the row cannot be updated.
+     */
+    public function retire(string $key): void {
+        global $DB;
+
+        if ($key === '') {
+            return;
+        }
+
+        foreach (self::TABLES as $table) {
+            if ($DB->record_exists($table, ['editorkey' => $key])) {
+                $DB->set_field($table, 'editorkey', null, ['editorkey' => $key]);
 
                 return;
             }

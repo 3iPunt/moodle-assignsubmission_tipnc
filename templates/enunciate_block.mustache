@@ -27,6 +27,7 @@
     * embed - whether the document is shown, or only linked
     * viewurl - address of the document
     * filename - its name in NextCloud
+    * preparing - the brief of a restored assignment is being copied
 
     Example context (json):
     {
@@ -36,7 +37,7 @@
         "filename": "enun_36.docx",
         "hasfolder": true,
         "folderurl": "#",
-        "frametitle": "Enunciado de la tarea"
+        "frametitle": "Assignment brief"
     }
 }}
 <section class="tipnc-enunciate {{^embed}}tipnc-enunciate--compact{{/embed}}"
@@ -125,7 +126,18 @@
         <p class="tipnc-enunciate__file">{{filename}}</p>
     {{/embed}}
 
+    {{#preparing}}
+        <div class="tipnc-enunciate__notready" role="status">
+            <p class="tipnc-enunciate__notready-title">
+                {{#str}} enunciate_preparing, assignsubmission_tipnc {{/str}}
+            </p>
+            <p class="tipnc-enunciate__notready-hint">
+                {{#str}} enunciate_preparing_hint, assignsubmission_tipnc {{/str}}
+            </p>
+        </div>
+    {{/preparing}}
     {{^ready}}
+    {{^preparing}}
         <div class="tipnc-enunciate__notready">
             <p class="tipnc-enunciate__notready-title">
                 {{#str}} enunciate_notready, assignsubmission_tipnc {{/str}}
@@ -151,6 +163,7 @@
                 </p>
             {{/canprepare}}
         </div>
+    {{/preparing}}
     {{/ready}}
 
 </section>

@@ -34,6 +34,8 @@ use assignsubmission_tipnc\output\document_viewer;
 use assignsubmission_tipnc\output\enunciate_block;
 use assignsubmission_tipnc\output\submission_summary;
 use assignsubmission_tipnc\output\unavailable;
+use assignsubmission_tipnc\task\create_enunciate;
+use assignsubmission_tipnc\tipnc_enun;
 use cm_info;
 use coding_exception;
 use core\hook\output\after_standard_main_region_html_generation;
@@ -349,8 +351,17 @@ class hook_callbacks {
         // time for each person and none afterwards.
         $cangrade = has_capability('mod/assign:grade', $cm->context);
 
+        $preparing = false;
+
         if ($model->get_enunciate($instance)) {
             (new nextcloud($instance))->grant_enunciate($USER, $cangrade);
+        } else if (tipnc_enun::remembered_path($instance) !== '') {
+            // A restored assignment waiting for the copy of its brief. Only whoever
+            // marks asks for it: the copy is made with their permissions.
+            if ($cangrade) {
+                create_enunciate::queue($instance, (int) $USER->id);
+            }
+            $preparing = true;
         }
 
         $own = $model->own_work($instance, (int) $USER->id);
@@ -371,25 +382,39 @@ class hook_callbacks {
         $html = $output->render(enunciate_block::for_assignment(
             $instance,
             $own === null && $embed,
-            $prepare,
-            $cangrade
+            $preparing ? null : $prepare,
+            $cangrade,
+            $preparing
         ));
 
         if ($own !== null && $own->path !== '') {
             $path = $own->path;
+            $frozen = $own->mode === document::MODE_SUBMISSION;
 
-            // The frozen submission is read, the draft is written: that is what decides
-            // whether the editor opens in edit or read-only mode.
+            // A draft is written only while mod_assign would let the form be used:
+            // locked, past the cut-off or already submitted means read only.
+            $canwrite = !$frozen && $model->can_write_draft($instance, (int) $USER->id);
+
+            // Their own shares lapse like any other, so they are renewed here.
+            (new nextcloud($instance))->grant_own($USER, $own->submission, $canwrite);
+
+            $readonly = '';
+            if ($frozen) {
+                // Frozen, not "not yours": handing in is what closed it.
+                $readonly = document_viewer::READONLY_FROZEN;
+            } else if (!$canwrite) {
+                $readonly = document_viewer::READONLY_CLOSED;
+            }
+
             $viewer = $embed ? document_viewer::for_document(
                 $instance,
                 $path,
                 $own->ncid,
                 basename($path),
                 $USER,
-                $own->mode !== document::MODE_SUBMISSION,
+                $canwrite,
                 $model->frame_height_class(),
-                // Frozen, not "not yours": handing in is what closed it.
-                $own->mode === document::MODE_SUBMISSION ? document_viewer::READONLY_FROZEN : ''
+                $readonly
             ) : null;
 
             $html .= $output->render(new submission_summary(

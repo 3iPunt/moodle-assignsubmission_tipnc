@@ -155,8 +155,22 @@ final class sessions_test extends advanced_testcase {
     public function test_noting_a_save_of_an_unknown_key_changes_nothing(): void {
         $key = $this->sessions->key_for(self::NCID, 1000);
 
-        $this->sessions->note_save('unaclavequenoexiste', 2000);
+        $this->sessions->note_save('unknownkey', 2000);
 
         $this->assertSame($key, $this->sessions->current(self::NCID));
+    }
+
+    /**
+     * A session that ended gives up its key, and the next opening gets a new one.
+     *
+     * @return void
+     */
+    public function test_an_ended_session_gives_up_its_key(): void {
+        $key = $this->sessions->key_for(self::NCID, 1000);
+
+        $this->sessions->retire($key);
+
+        $this->assertSame('', $this->sessions->current(self::NCID));
+        $this->assertNotSame($key, $this->sessions->key_for(self::NCID, 1000));
     }
 }

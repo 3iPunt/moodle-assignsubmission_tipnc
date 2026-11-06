@@ -1,7 +1,7 @@
 <h1 align="center">NextCloud Submission</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.1-informational" alt="Versió">
+  <img src="https://img.shields.io/badge/version-2.1.0-informational" alt="Versió">
   <a href="https://moodle.org"><img src="https://img.shields.io/badge/Moodle-4.5%20--%205.1-orange?logo=moodle" alt="Moodle"></a>
   <img src="https://img.shields.io/badge/Workplace-4.5%2B-blue" alt="Moodle Workplace">
   <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white" alt="PHP">
@@ -40,7 +40,12 @@ està activat.
 - **Tasques de grup i reintents** — un document per grup quan la tasca funciona
   així, i un per intent quan el professorat la reobre.
 - **L'accés es concedeix en entrar i es retira en sortir** — qui pot obrir la
-  tasca al Moodle rep accés al document; perdre el rol o la matrícula l'hi treu.
+  tasca al Moodle rep accés al document; perdre un rol o una matrícula al curs
+  l'hi treu (vegeu les limitacions més avall).
+- **Còpia de seguretat, restauració, importació i duplicat** — l'enunciat viatja
+  amb la tasca i, amb dades d'usuari, també l'esborrany i el lliurament de cada
+  estudiant. Es copien a NextCloud, així que dues tasques mai no escriuen al
+  mateix document.
 - **Avisa quan el servei és caigut** — si NextCloud no respon, la tasca ho
   explica amb paraules clares i rebutja el lliurament, en comptes d'acceptar una
   feina que no s'ha desat mai.
@@ -109,10 +114,30 @@ comptes de deixar la feina —amb el nom de la persona a dins— a l'altre siste
 - **Esborrar és una decisió, no el que passa per defecte.** Esborrar un
   lliurament o una tasca al Moodle deixa els documents a NextCloud llevat que
   l'administració demani una altra cosa: un esborrat aquí seria irreversible a
-  l'altre sistema.
+  l'altre sistema. Reiniciar el curs treu els lliuraments i conserva l'enunciat.
+- **Un lliurament tancat és de només lectura.** Quan el lliurament està
+  bloquejat, ha passat la data límit o ja s'ha lliurat, l'esborrany s'obre en
+  només lectura i l'editor integrat ja no hi pot desar. Amb l'editor integrat,
+  compta el que s'ha desat («Desa els canvis») o lliurat abans del tancament: el
+  que encara estigui obert a l'editor en aquell moment no es conserva.
+- **Mai no s'escriu a sobre d'un document.** Si un nom ja està ocupat a
+  NextCloud —un document conservat d'un lliurament eliminat, o el del curs
+  anterior després d'un reinici—, el nou rep un nom numerat i l'antic queda
+  intacte.
+- **Els documents restaurats només es copien si són de fiar.** Un document d'una
+  còpia de seguretat es copia si és d'aquest lloc i qui restaura podria haver fet
+  la còpia de la seva tasca. Si no, l'enunciat parteix de la plantilla, els
+  esborranys no es copien i el registre d'incidències ho anota.
 - Tot el que el connector fa contra NextCloud s'escriu en un **registre
   d'incidències** amb el seu codi, i es conserva el temps que digui
   l'administració.
+
+### Limitacions
+
+- **Perdre una matrícula o un rol retira tots els accessos del curs.** El
+  connector no comprova si la persona continua matriculada per una altra via
+  (per exemple, per cohort a més de manualment) ni si conserva un altre rol.
+  L'accés als seus propis documents torna la propera vegada que entra a la tasca.
 
 ### Què necessita el lloc segons com es mostri el document
 

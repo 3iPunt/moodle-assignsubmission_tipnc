@@ -113,9 +113,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpunit --fail-on-warning
 
-      # No hay Behat en este plugin: los flujos de entrega se prueban a mano
-      # contra un NextCloud real, porque sin el servicio detras no hay nada que
-      # automatizar. Queda pendiente en TIPNC-030.
+      # No Behat: the submission flows need a real NextCloud and are tested by hand.
 
       - name: Mark cancelled jobs as failed.
         if: ${{ cancelled() }}

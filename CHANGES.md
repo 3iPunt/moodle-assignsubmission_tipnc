@@ -2,6 +2,66 @@
 
 All notable changes to this plugin are documented here.
 
+## 2.1.0 — 2026-11-05 (`2026110500`)
+
+Answers the Moodle Marketplace review. Adds backup and restore, closes a hole in
+the editor callback, and fixes how documents and their access live in NextCloud.
+Requires Moodle 4.5+ (supported: 4.5 – 5.1).
+
+### Security
+
+- **The editor callback only stores what the Document Server signed.** Tokens
+  issued by Moodle are refused in the body; status and result address are read
+  from the verified payload only; the signed key must match the callback
+  address; the result is downloaded only from the configured Document Server.
+- **Read-only sessions get no callback address**, and the callback only accepts
+  addresses issued for an editing session.
+- **A closed submission cannot be edited.** When the submission is locked, past
+  its cut-off date or handed in, the draft opens read only, and saves that still
+  arrive from an editor opened earlier are discarded and logged.
+- `assignsubmission/tipnc:view_errors` declares `RISK_PERSONAL | RISK_DATALOSS`.
+
+### Added
+
+- **«Save changes» saves the document.** With the embedded editor, saving the
+  submission form asks the editor to write the draft into NextCloud and waits for
+  it, as handing in already did. What is saved before the submission closes is
+  what counts.
+- **Backup, restore, import and duplication.** The brief is copied in NextCloud
+  into the new assignment; with user data, so are each student's draft and
+  submission. A document is copied only if it belongs to this site and the
+  person restoring could have backed up its assignment; otherwise the brief
+  starts from the template. While the copy is made, the assignment says the brief
+  is being prepared.
+- **Privacy:** the Document Server is declared as an external location, and the
+  incident log entries about a person are exported and deleted with their data.
+
+### Fixed
+
+- **Resetting a course no longer leaves its assignments without a brief.** Only
+  the submissions are removed; the brief goes when the assignment is deleted.
+- **No document is written over.** Copies never replace an existing file: a taken
+  name gets a numbered one. Only a submission's own frozen copy is replaced when
+  it is handed in again.
+- **Course or assignment names with `#` or `%`** no longer break the creation of
+  documents.
+- **Access to one's own draft and submission is renewed on every visit**, as it
+  already was for the brief, instead of lapsing for good.
+- **A missing document is no longer taken for a missing account** when sharing,
+  so a student is not shown as having no account because a file is not there.
+- **A document edited and closed opens with its changes.** After the editing
+  session ends, the next opening gets a new editor key, so the editor no longer
+  serves its cached copy of the previous version.
+- When an assignment is deleted, its brief is found by its stored path.
+- Missing `cachedef_*` language strings.
+
+### Changed
+
+- The remaining Spanish text in the code is now in English or in language
+  strings, including the names used for new documents: `group`, `unknown` and
+  `unnamed` instead of `grupo`, `desconocido` and `sin nombre`. Existing
+  documents keep their names.
+
 ## 2.0.1 — 2026-09-11 (`2026091101`)
 
 Housekeeping release for publication. **No behaviour changes**: every comment in

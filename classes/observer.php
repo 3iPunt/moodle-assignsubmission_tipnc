@@ -24,10 +24,18 @@
 
 namespace assignsubmission_tipnc;
 
+use assignsubmission_tipnc\models\cleanup;
+use assignsubmission_tipnc\models\restored;
+use assignsubmission_tipnc\task\create_enunciate;
 use assignsubmission_tipnc\task\revoke_person;
 use context;
+use core\event\course_content_deleted;
+use core\event\course_module_created;
+use core\event\course_module_deleted;
+use core\event\course_restored;
 use core\event\role_unassigned;
 use core\event\user_enrolment_deleted;
+use dml_exception;
 
 /**
  * Event observers of the plugin.
@@ -80,5 +88,71 @@ class observer {
         }
 
         revoke_person::queue((int) $coursecontext->instanceid, (int) $event->relateduserid);
+    }
+
+    /**
+     * A course was restored or imported into.
+     *
+     * Its assignments came with the address of their brief and none of their own.
+     *
+     * @param  course_restored $event The event.
+     * @return void
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public static function course_restored(course_restored $event): void {
+        foreach ((new restored())->pending_briefs((int) $event->objectid) as $assignment) {
+            create_enunciate::queue($assignment, (int) $event->userid);
+        }
+    }
+
+    /**
+     * A module was created, which is also what duplicating an activity triggers.
+     *
+     * @param  course_module_created $event The event.
+     * @return void
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public static function course_module_created(course_module_created $event): void {
+        if (($event->other['modulename'] ?? '') !== 'assign') {
+            return;
+        }
+
+        $instance = (int) ($event->other['instanceid'] ?? 0);
+        if ($instance === 0) {
+            return;
+        }
+
+        foreach ((new restored())->pending_briefs(0, $instance) as $assignment) {
+            create_enunciate::queue($assignment, (int) $event->userid);
+        }
+    }
+
+    /**
+     * An assignment was deleted: its brief goes with it.
+     *
+     * @param  course_module_deleted $event The event.
+     * @return void
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public static function course_module_deleted(course_module_deleted $event): void {
+        if (($event->other['modulename'] ?? '') !== 'assign') {
+            return;
+        }
+
+        $instance = (int) ($event->other['instanceid'] ?? 0);
+        if ($instance > 0) {
+            (new cleanup())->forget_briefs($instance);
+        }
+    }
+
+    /**
+     * A course was emptied or deleted, which does not trigger the module event.
+     *
+     * @param  course_content_deleted $event The event.
+     * @return void
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public static function course_content_deleted(course_content_deleted $event): void {
+        (new cleanup())->forget_briefs();
     }
 }

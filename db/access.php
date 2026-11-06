@@ -34,6 +34,8 @@ $capabilities = [
     // CAP_PROHIBIT would prevent that for ever, which is more than is needed
     // here —it is meant for what must never be allowed—.
     'assignsubmission/tipnc:view_errors' => [
+        // Personal data from the whole site, and the same capability exports and purges it.
+        'riskbitmask' => RISK_PERSONAL | RISK_DATALOSS,
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => [

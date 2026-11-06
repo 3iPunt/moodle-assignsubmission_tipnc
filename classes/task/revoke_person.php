@@ -98,7 +98,9 @@ class revoke_person extends adhoc_task {
             grants::forget(grants::ENUNCIATE, (int) $row->assignment, $userid);
 
             if ((int) $row->submissionid > 0) {
-                grants::forget(grants::SUBMISSION, (int) $row->submissionid, $userid);
+                foreach ([grants::SUBMISSION, grants::OWN_DRAFT_WRITE, grants::OWN_DRAFT_READ, grants::OWN_FROZEN] as $what) {
+                    grants::forget($what, (int) $row->submissionid, $userid);
+                }
             }
         }
 

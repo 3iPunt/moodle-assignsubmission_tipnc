@@ -64,6 +64,9 @@ class nextcloud {
      */
     public const PERMISSION_FILE_ALL = 19;
 
+    /** @var int Counters tried before falling back to a timestamp in the name. */
+    protected const FREE_NAME_TRIES = 20;
+
     /** @var int Instance */
     protected $instance;
 
@@ -108,7 +111,10 @@ class nextcloud {
      * @return string The path to call.
      */
     protected function dav_path(string $path): string {
-        return '/remote.php/dav/files/' . $this->user . '/' . $path;
+        // Each segment is encoded: course and assignment names may hold # or %.
+        $segments = array_map('rawurlencode', explode('/', $path));
+
+        return '/remote.php/dav/files/' . rawurlencode((string) $this->user) . '/' . implode('/', $segments);
     }
 
     /**
@@ -128,23 +134,27 @@ class nextcloud {
     }
 
     /**
-     * Teacher create Assign with NextCloud Submission.
+     * Creates the brief of the assignment.
      *
-     * @return response
-     * @throws dml_exception
+     * @param  string|null $from Brief of another assignment to copy, or null for the template.
+     * @return response The identifier of the new brief, or the failure.
+     * @throws dml_exception If the incident cannot be recorded.
      */
-    public function teacher_create(): response {
+    public function teacher_create(?string $from = null): response {
         global $USER;
 
         $this->ensure_folder($this->context('create_enunciate', 'teacher_create:folder'));
 
-        $template = $this->document->get_template();
-        $enun = $this->document->get_enunciate();
+        $origin = $from ?? $this->document->get_template();
+        $enun = $this->free_path($this->document->get_enunciate());
 
         $rescopy = $this->copy_file(
-            $template,
+            $origin,
             $enun,
-            $this->context('create_enunciate', 'teacher_create:copy_file')
+            $this->context(
+                $from === null ? 'create_enunciate' : 'restore_document',
+                'teacher_create:copy_file'
+            )
         );
         if (!$rescopy->success) {
             return $rescopy;
@@ -235,19 +245,61 @@ class nextcloud {
             $this->document->submission_path($submission),
             $user,
             true,
-            'grant_submission:share_file'
+            'grant_submission:share_file',
+            'share_submission'
         );
+    }
+
+    /**
+     * Renews the access of somebody to their own draft and frozen copy.
+     *
+     * Those shares have an end date like any other, so they are renewed on every
+     * visit. The draft gets write access only while the submission is open.
+     *
+     * @param  stdClass $user       Who walked in.
+     * @param  stdClass $submission Their submission.
+     * @param  bool     $canwrite   Whether they may still write in the draft.
+     * @return void
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    public function grant_own(stdClass $user, stdClass $submission, bool $canwrite): void {
+        $draft = tipnc_open::get($submission->id);
+        if ($draft && !empty($draft->path)) {
+            $this->grant_once(
+                $canwrite ? grants::OWN_DRAFT_WRITE : grants::OWN_DRAFT_READ,
+                (int) $submission->id,
+                $draft->path,
+                $user,
+                $canwrite,
+                'grant_own:draft',
+                'share_draft'
+            );
+        }
+
+        $frozen = tipnc::get($submission->id);
+        if ($frozen && !empty($frozen->path)) {
+            $this->grant_once(
+                grants::OWN_FROZEN,
+                (int) $submission->id,
+                $frozen->path,
+                $user,
+                false,
+                'grant_own:frozen',
+                'share_submission'
+            );
+        }
     }
 
     /**
      * Gives access to a document, once per person and document.
      *
-     * @param  string   $what     Which kind of document it is.
-     * @param  int      $id       Assignment or submission it belongs to.
-     * @param  string   $path     Path of the document in NextCloud.
-     * @param  stdClass $user     Who walked in.
-     * @param  bool     $canwrite Whether they may write in it.
-     * @param  string   $method   Point in the code, for the incident log.
+     * @param  string   $what      Which kind of document it is.
+     * @param  int      $id        Assignment or submission it belongs to.
+     * @param  string   $path      Path of the document in NextCloud.
+     * @param  stdClass $user      Who walked in.
+     * @param  bool     $canwrite  Whether they may write in it.
+     * @param  string   $method    Point in the code, for the incident log.
+     * @param  string   $operation Operation for the incident log.
      * @return void
      * @throws dml_exception If the incident cannot be recorded.
      */
@@ -257,19 +309,19 @@ class nextcloud {
         string $path,
         stdClass $user,
         bool $canwrite,
-        string $method
+        string $method,
+        string $operation = 'grant_enunciate'
     ): void {
         if (grants::already($what, $id, (int) $user->id)) {
             return;
         }
 
         $permission = $canwrite ? self::PERMISSION_FILE_ALL : self::PERMISSION_READ;
-        $expires = self::expiry_date();
-        $context = $this->context('grant_enunciate', $method, ['affecteduserid' => $user->id]);
+        $context = $this->context($operation, $method, ['affecteduserid' => $user->id]);
 
-        // Se intenta renovar antes de crear: NextCloud rechaza compartir dos veces
-        // the same, and without this every visit after the cache expires would
-        // leave a warning in the log without achieving anything.
+        // Renewing comes before creating: NextCloud rejects sharing the same
+        // document twice, and without this every visit after the cache expires
+        // would leave a warning in the log without achieving anything.
         $answer = $this->grant_or_renew($path, $user->username, $permission, $context);
 
         // Only what went well is remembered: if NextCloud was down, the next
@@ -401,7 +453,7 @@ class nextcloud {
         ));
 
         $enun = $this->document->enunciate_path();
-        $open = $this->document->open_path($submission);
+        $open = $this->free_path($this->document->open_path($submission));
         $rescopy = $this->copy_file(
             $enun,
             $open,
@@ -470,7 +522,11 @@ class nextcloud {
      */
     public function student_submit(stdClass $submission): response {
         $open = $this->document->open_path($submission);
-        $sub = $this->document->submission_for($submission);
+
+        // Handing in again replaces this submission's own frozen copy, and only that.
+        $frozen = tipnc::get($submission->id);
+        $replace = $frozen && !empty($frozen->path);
+        $sub = $replace ? $frozen->path : $this->free_path($this->document->submission_for($submission));
 
         // Before freezing anything, the editor is asked to write what it holds:
         // without this the previous version is copied and the student hands in
@@ -484,7 +540,8 @@ class nextcloud {
                 'submit_freeze',
                 'student_submit:copy_file',
                 ['submission' => $submission->id]
-            )
+            ),
+            $replace
         );
         if (!$rescopy->success) {
             return $rescopy;
@@ -533,21 +590,155 @@ class nextcloud {
     }
 
     /**
+     * Copies a restored draft or submission into the assignment it now belongs to.
+     *
+     * The copy is a new file: the restored assignment never writes in the
+     * document of the original one.
+     *
+     * @param  stdClass $submission The restored submission.
+     * @param  string   $source     Path of the document of the original assignment.
+     * @param  string   $mode       document::MODE_OPEN or document::MODE_SUBMISSION.
+     * @return response The identifier of the copy, or the failure.
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    public function restore_document(stdClass $submission, string $source, string $mode): response {
+        $draft = $mode === document::MODE_OPEN;
+        $destiny = $this->free_path(
+            $draft ? $this->document->open_for($submission) : $this->document->submission_for($submission)
+        );
+        $context = $this->context('restore_document', 'restore_document', ['submission' => $submission->id]);
+
+        $this->ensure_folder($context);
+
+        $rescopy = $this->copy_file($source, $destiny, $context);
+        if (!$rescopy->success) {
+            return $rescopy;
+        }
+
+        $reslisting = $this->listing($destiny, $this->context(
+            'lookup_document',
+            'restore_document:lookup',
+            ['submission' => $submission->id]
+        ));
+        if (!$reslisting->success) {
+            return $reslisting;
+        }
+
+        $row = (object) [
+            'assignment' => $submission->assignment,
+            'submission' => $submission->id,
+            'ncid' => $reslisting->data,
+            'path' => $destiny,
+        ];
+        $draft ? tipnc_open::set($row) : tipnc::set($row);
+
+        // A draft stays writable until it is handed in; a frozen copy is read.
+        $canwrite = $draft && ($submission->status ?? '') !== ASSIGN_SUBMISSION_STATUS_SUBMITTED;
+
+        $resshare = $this->share_with_owners(
+            $destiny,
+            $submission,
+            $canwrite ? self::PERMISSION_FILE_ALL : self::PERMISSION_READ,
+            $this->context('restore_document', 'restore_document:share', ['submission' => $submission->id])
+        );
+
+        return $resshare->success
+            ? new response(true, $row->ncid)
+            : new response(true, $row->ncid, $resshare->error);
+    }
+
+    /**
+     * Whether a document exists, without recording the call.
+     *
+     * @param  string $file Path of the document.
+     * @return bool True when NextCloud finds it.
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    protected function exists(string $file): bool {
+        return $this->probe($file)->is_success();
+    }
+
+    /**
+     * Whether NextCloud says for certain that a document is not there.
+     *
+     * Unlike !exists(), an unreachable server is not taken as a missing file.
+     *
+     * @param  string $file Path of the document.
+     * @return bool True only on a 404.
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    protected function missing(string $file): bool {
+        return $this->probe($file)->httpcode === 404;
+    }
+
+    /**
+     * Asks for a document without recording the call.
+     *
+     * @param  string $file Path of the document.
+     * @return http_response What NextCloud answered.
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    private function probe(string $file): http_response {
+        return $this->client->request('PROPFIND', $this->dav_path($file), [
+            'headers' => ['Depth' => '0'],
+            'log' => false,
+            'context' => ['documentpath' => $file],
+        ]);
+    }
+
+    /**
+     * The given path, or the first free one with a counter before the extension.
+     *
+     * Names are fixed, so a document from a reset course or a removed submission
+     * may already be there; it is kept and the new one gets another name.
+     *
+     * @param  string $path Path the document would have.
+     * @return string A path nothing is at.
+     * @throws dml_exception If the incident cannot be recorded.
+     */
+    protected function free_path(string $path): string {
+        if (!$this->exists($path)) {
+            return $path;
+        }
+
+        $dot = strrpos($path, '.');
+        $slash = strrpos($path, '/');
+        $hasextension = $dot !== false && ($slash === false || $dot > $slash);
+        $stem = $hasextension ? substr($path, 0, $dot) : $path;
+        $extension = $hasextension ? substr($path, $dot) : '';
+
+        for ($counter = 2; $counter <= self::FREE_NAME_TRIES; $counter++) {
+            $candidate = $stem . '_' . $counter . $extension;
+            if (!$this->exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $stem . '_' . time() . $extension;
+    }
+
+    /**
      * Copies a document inside the working folder.
      *
-     * @param  string $origin  Source path.
-     * @param  string $destiny Destination path.
-     * @param  array  $context Context for the incident log.
+     * Never over an existing document unless asked: COPY with Overwrite F fails
+     * instead of replacing.
+     *
+     * @param  string $origin    Source path.
+     * @param  string $destiny   Destination path.
+     * @param  array  $context   Context for the incident log.
+     * @param  bool   $overwrite Whether an existing document may be replaced.
      * @return response Success, or the failure with its code.
      * @throws dml_exception If the incident cannot be recorded.
      */
-    protected function copy_file(string $origin, string $destiny, array $context = []): response {
+    protected function copy_file(string $origin, string $destiny, array $context = [], bool $overwrite = false): response {
         $answer = $this->client->request('COPY', $this->dav_path($origin), [
             'headers' => [
                 'OCS-APIRequest' => 'true',
                 // The destination resolves against the same host as the call: using
                 // the public URL would make NextCloud reject it as external.
                 'Destination' => $this->client->base_url() . $this->dav_path($destiny),
+                // WebDAV replaces by default; only a frozen copy may be replaced.
+                'Overwrite' => $overwrite ? 'T' : 'F',
             ],
             'context' => array_merge($context, [
                 'errorcode' => code::COPY_NOT_FOUND,
@@ -587,7 +778,7 @@ class nextcloud {
             ? $this->document->submission_path($source)
             : $this->document->open_path($source);
 
-        $draft = $this->document->open_for($destiny);
+        $draft = $this->free_path($this->document->open_for($destiny));
 
         $rescopy = $this->copy_file(
             $previous,
@@ -729,7 +920,13 @@ class nextcloud {
             return new response(false, null, new error(code::SHARE_NO_ACCOUNT, ''));
         }
 
-        $draft = $this->document->open_path($submission);
+        // A reopened attempt has no draft until its form is opened: nothing to lock.
+        $row = tipnc_open::get($submission->id);
+        if (!$row || empty($row->path)) {
+            return new response(true);
+        }
+
+        $draft = $row->path;
         $operation = $canwrite ? 'unlock_draft' : 'lock_draft';
 
         $permission = $canwrite ? self::PERMISSION_FILE_ALL : self::PERMISSION_READ;
@@ -745,125 +942,90 @@ class nextcloud {
     }
 
     /**
-     * Makes sure the document holds what was written before it is copied.
+     * Asks the student's draft to be saved from the open editor, before the form saves.
      *
-     * Only possible when Moodle embeds the editor: it is the one that knows the
-     * key of the editing session, because it made it. In the other modes there is
-     * nobody to ask, and the copy is taken as it comes.
-     *
-     * @param  string   $open       Path of the draft.
-     * @param  stdClass $submission The submission being handed in.
+     * @param  stdClass $submission The submission being saved.
      * @return void
      * @throws dml_exception If the incident cannot be recorded.
      * @throws coding_exception If a language string is missing.
      */
-    protected function settle_document(string $open, stdClass $submission): void {
+    public function save_draft(stdClass $submission): void {
+        $row = tipnc_open::get($submission->id);
+        if (!$row || empty($row->path)) {
+            return;
+        }
+
+        $this->settle_document($row->path, $submission, 'save_draft', 'save_draft');
+    }
+
+    /**
+     * Makes the open editor write what it holds into the draft, and waits for it.
+     *
+     * Only the embedded editor can be asked; in the other modes the document is taken as it is.
+     *
+     * @param  string   $open       Path of the draft.
+     * @param  stdClass $submission The submission it belongs to.
+     * @param  string   $operation  Operation for the incident log.
+     * @param  string   $method     Prefix of the point in the code, for the incident log.
+     * @return void
+     * @throws dml_exception If the incident cannot be recorded.
+     * @throws coding_exception If a language string is missing.
+     */
+    protected function settle_document(
+        string $open,
+        stdClass $submission,
+        string $operation = 'submit_freeze',
+        string $method = 'student_submit'
+    ): void {
         if (viewmode::current() !== viewmode::EDITOR) {
             return;
         }
 
+        $note = function (bool $ok, string $step, string $string, ?string $a = null) use ($open, $submission, $operation, $method) {
+            $context = $this->context($operation, $method . ':' . $step, [
+                'submission' => $submission->id,
+                'documentpath' => $open,
+                'responsebody' => get_string($string, 'assignsubmission_tipnc', $a),
+            ]);
+            $ok ? logger::info(code::OK, $operation, $context)
+                : logger::warning(code::SUBMIT_NOT_SAVED, $operation, $context);
+        };
+
         $ncid = (int) (tipnc_open::get($submission->id)->ncid ?? 0);
         if ($ncid === 0) {
-            logger::warning(code::SUBMIT_NOT_SAVED, 'submit_freeze', $this->context(
-                'submit_freeze',
-                'student_submit:nodraft',
-                ['submission' => $submission->id, 'documentpath' => $open,
-                'responsebody' => get_string(
-                    'log_submit_nodraft',
-                    'assignsubmission_tipnc'
-                )]
-            ));
+            $note(false, 'nodraft', 'log_submit_nodraft');
             return;
         }
 
         $before = $this->modified_time($open);
+        $note(true, 'asksave', 'log_submit_asksave');
 
-        // The forced save and the wait do not go through the instrumented client, so
-        // without this the submission records nothing of the most important step.
-        logger::info(code::OK, 'submit_freeze', $this->context(
-            'submit_freeze',
-            'student_submit:asksave',
-            ['submission' => $submission->id, 'documentpath' => $open,
-            'responsebody' => get_string(
-                'log_submit_asksave',
-                'assignsubmission_tipnc'
-            )]
-        ));
-
-        // The same key it was opened with, exactly as it was stored: recalculating
-        // it would no longer belong to any live session, and the editor would reject
-        // the command outright.
-        // The stored one, never a new one: renewing it here would invent a session
-        // the editor does not have open, and it would reject the command.
+        // The stored key of the open session: a new one would not reach it.
         $key = (new sessions())->current($ncid);
-
         if ($key === '') {
-            logger::warning(code::SUBMIT_NOT_SAVED, 'submit_freeze', $this->context(
-                'submit_freeze',
-                'student_submit:nosession',
-                ['submission' => $submission->id, 'documentpath' => $open,
-                'responsebody' => get_string(
-                    'log_submit_nosession',
-                    'assignsubmission_tipnc'
-                )]
-            ));
+            // The session already ended, and ending it saved the document.
+            $note(true, 'nosession', 'log_submit_nosession');
             return;
         }
 
         $answer = command::force_save($key);
-
         if (!command::saved($answer)) {
-            logger::warning(code::SUBMIT_NOT_SAVED, 'submit_freeze', $this->context(
-                'submit_freeze',
-                'student_submit:forcesave',
-                ['submission' => $submission->id, 'documentpath' => $open,
-                    'responsebody' => get_string(
-                        'log_submit_refused',
-                        'assignsubmission_tipnc',
-                        command::describe($answer)
-                    )]
-            ));
+            $note(false, 'forcesave', 'log_submit_refused', command::describe($answer));
             return;
         }
 
-        // With nobody editing there is nothing to wait for: the document is whole.
         if ($answer === command::NOTHING_TO_SAVE) {
-            logger::info(code::OK, 'submit_freeze', $this->context(
-                'submit_freeze',
-                'student_submit:forcesave',
-                ['submission' => $submission->id, 'documentpath' => $open,
-                'responsebody' => get_string(
-                    'log_submit_nochanges',
-                    'assignsubmission_tipnc'
-                )]
-            ));
+            $note(true, 'forcesave', 'log_submit_nochanges');
             return;
         }
 
-        // The editor answers at once and writes a moment later: what decides that
-        // the submission is sound is that the document has changed.
+        // The editor answers at once and writes a moment later.
         if (!$this->wait_for_change($open, $before)) {
-            logger::warning(code::SUBMIT_NOT_SAVED, 'submit_freeze', $this->context(
-                'submit_freeze',
-                'student_submit:wait',
-                ['submission' => $submission->id, 'documentpath' => $open,
-                'responsebody' => get_string(
-                    'log_submit_late',
-                    'assignsubmission_tipnc'
-                )]
-            ));
+            $note(false, 'wait', 'log_submit_late');
             return;
         }
 
-        logger::info(code::OK, 'submit_freeze', $this->context(
-            'submit_freeze',
-            'student_submit:forcesave',
-            ['submission' => $submission->id, 'documentpath' => $open,
-            'responsebody' => get_string(
-                'log_submit_saved',
-                'assignsubmission_tipnc'
-            )]
-        ));
+        $note(true, 'forcesave', 'log_submit_saved');
     }
 
     /**
@@ -1220,6 +1382,17 @@ class nextcloud {
         array $context = [],
         string $expires = ''
     ): response {
+        // OCS answers 404 both for an unknown account and for a missing file.
+        // Telling them apart here is what keeps a missing file from marking
+        // somebody as having no account.
+        if ($this->missing($file)) {
+            logger::error(code::SHARE_NO_DOCUMENT, (string) ($context['operation'] ?? ''), array_merge($context, [
+                'documentpath' => $file,
+            ]));
+
+            return new response(false, null, new error(code::SHARE_NO_DOCUMENT, ''));
+        }
+
         $form = [
             'path' => '/' . ltrim($file, '/'),
             'shareType' => self::SHARE_TYPE_USER,

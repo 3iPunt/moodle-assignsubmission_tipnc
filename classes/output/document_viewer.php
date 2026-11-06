@@ -53,6 +53,9 @@ class document_viewer implements renderable, templatable {
     /** @var string It is frozen: it was handed in and no longer changes. */
     public const READONLY_FROZEN = 'frozen';
 
+    /** @var string Submissions are closed for this person: locked or past the cut-off. */
+    public const READONLY_CLOSED = 'closed';
+
     /** @var string This person only gets to read it. */
     public const READONLY_ROLE = 'role';
 

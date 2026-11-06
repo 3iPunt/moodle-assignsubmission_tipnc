@@ -36,16 +36,14 @@
         "configjson": "",
         "serverurl": "",
         "url": "https://nextcloud.example.org/apps/onlyoffice/633",
-        "frametitle": "Enunciado de la tarea",
+        "frametitle": "Assignment brief",
         "heightclass": "tipnc-frame--h560",
         "isreadonly": true,
-        "readonlytext": "Solo lectura"
+        "readonlytext": "Read only"
     }
 }}
 {{!
-    El motivo por el que no se puede escribir se decide aquí, pero se pinta en la
-    barra de la caja que contiene el documento, que es donde está el resto de lo
-    que se dice sobre él. Las cajas lo leen como viewer.isreadonly.
+    The read-only reason is shown by the enclosing box, which reads viewer.isreadonly.
 }}
 <div class="tipnc-frame {{heightclass}}">
     {{#useeditor}}

@@ -1,7 +1,7 @@
 <h1 align="center">NextCloud Submission</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.1-informational" alt="Versión">
+  <img src="https://img.shields.io/badge/version-2.1.0-informational" alt="Versión">
   <a href="https://moodle.org"><img src="https://img.shields.io/badge/Moodle-4.5%20--%205.1-orange?logo=moodle" alt="Moodle"></a>
   <img src="https://img.shields.io/badge/Workplace-4.5%2B-blue" alt="Moodle Workplace">
   <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white" alt="PHP">
@@ -40,8 +40,12 @@ está activado.
 - **Tareas de grupo y reintentos** — un documento por grupo cuando la tarea
   funciona así, y uno por intento cuando el profesorado la reabre.
 - **El acceso se concede al entrar y se retira al salir** — quien puede abrir la
-  tarea en Moodle recibe acceso al documento; perder el rol o la matrícula se lo
-  quita.
+  tarea en Moodle recibe acceso al documento; perder un rol o una matrícula en el
+  curso se lo quita (ver las limitaciones más abajo).
+- **Copia de seguridad, restauración, importación y duplicado** — el enunciado
+  viaja con la tarea y, con datos de usuario, también el borrador y la entrega de
+  cada estudiante. Se copian en NextCloud, así que dos tareas nunca escriben en
+  el mismo documento.
 - **Avisa cuando el servicio está caído** — si NextCloud no responde, la tarea lo
   explica con palabras claras y rechaza la entrega, en vez de aceptar un trabajo
   que nunca se guardó.
@@ -109,13 +113,33 @@ otro sistema.
   quien corrigió, no tal y como lo entregó el alumnado. Los centros que necesiten
   poder demostrar qué se entregó exactamente deberían activar el **versionado de
   ficheros de NextCloud**, que conserva las revisiones anteriores.
+- **Una entrega cerrada es de solo lectura.** Cuando la entrega está bloqueada,
+  ha pasado su fecha límite o ya se ha entregado, el borrador se abre en solo
+  lectura y el editor integrado ya no puede guardar en él. Con el editor
+  integrado, cuenta lo que se guardó («Guardar cambios») o se entregó antes del
+  cierre: lo que siga abierto en el editor en ese momento no se conserva.
 - **Borrar es una decisión, no lo que pasa por defecto.** Borrar una entrega o
   una tarea en Moodle deja los documentos en NextCloud salvo que la
   administración pida otra cosa: un borrado aquí sería irreversible en el otro
-  sistema.
+  sistema. Reiniciar el curso quita las entregas y conserva el enunciado.
+- **Nunca se escribe encima de un documento.** Si un nombre ya está ocupado en
+  NextCloud —un documento conservado de una entrega eliminada, o el del curso
+  anterior tras un reinicio—, el nuevo recibe un nombre numerado y el antiguo
+  queda intacto.
+- **Los documentos restaurados solo se copian si son de fiar.** Un documento de
+  una copia de seguridad se copia si es de este sitio y quien restaura podría
+  haber hecho la copia de su tarea. Si no, el enunciado parte de la plantilla,
+  los borradores no se copian y el registro de incidencias lo anota.
 - Todo lo que el plugin hace contra NextCloud se escribe en un **registro de
   incidencias** con su código, y se conserva el tiempo que diga la
   administración.
+
+### Limitaciones
+
+- **Perder una matrícula o un rol retira todos los accesos del curso.** El
+  plugin no comprueba si la persona sigue matriculada por otra vía (por ejemplo,
+  por cohorte además de a mano) ni si conserva otro rol. El acceso a sus propios
+  documentos vuelve la próxima vez que entra en la tarea.
 
 ### Qué necesita el sitio según cómo se muestre el documento
 

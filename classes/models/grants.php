@@ -47,6 +47,15 @@ class grants {
     /** @var string The frozen copy of one submission. */
     public const SUBMISSION = 's';
 
+    /** @var string Their own draft, still open for writing. */
+    public const OWN_DRAFT_WRITE = 'dw';
+
+    /** @var string Their own draft, closed for writing. */
+    public const OWN_DRAFT_READ = 'dr';
+
+    /** @var string Their own frozen copy. */
+    public const OWN_FROZEN = 'f';
+
     /**
      * Whether this person already has access to that document.
      *

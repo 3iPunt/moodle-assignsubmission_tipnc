@@ -200,7 +200,7 @@ class logger {
      * @throws dml_exception If the plugin configuration cannot be read.
      */
     private static function mask(string $text, int $limit): string {
-        // Credenciales dentro de la propia URL.
+        // Credentials inside the URL itself.
         $text = preg_replace('#(://)[^/@\s]+:[^/@\s]+@#', '$1' . self::MASK . '@', $text) ?? $text;
 
         // Authentication headers that may come in the body or in the trace.

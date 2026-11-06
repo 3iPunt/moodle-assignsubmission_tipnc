@@ -40,6 +40,62 @@ class tipnc_enun {
     /** @var string Table holding the briefs. */
     public const TABLE_TIPNC_ENUN = 'assignsubmission_tipnc_enun';
 
+    /** @var string Setting of the assignment that names where its brief is. */
+    public const CONFIG_BRIEFPATH = 'briefpath';
+
+    /**
+     * Notes where the brief of an assignment is, in its own settings.
+     *
+     * The settings are the only part of this plugin that travels in every backup,
+     * duplication and import: this is what lets a copy find the brief to copy.
+     *
+     * @param  int    $assignment Assignment instance.
+     * @param  string $path       Path of the brief in NextCloud, empty to forget it.
+     * @return void
+     * @throws dml_exception If the settings cannot be written.
+     */
+    public static function remember_path(int $assignment, string $path): void {
+        global $DB;
+
+        $conditions = [
+            'assignment' => $assignment,
+            'plugin' => 'tipnc',
+            'subtype' => 'assignsubmission',
+            'name' => self::CONFIG_BRIEFPATH,
+        ];
+
+        if ($path === '') {
+            $DB->delete_records('assign_plugin_config', $conditions);
+            return;
+        }
+
+        $id = $DB->get_field('assign_plugin_config', 'id', $conditions);
+        if ($id) {
+            $DB->set_field('assign_plugin_config', 'value', $path, ['id' => $id]);
+            return;
+        }
+
+        $DB->insert_record('assign_plugin_config', (object) ($conditions + ['value' => $path]));
+    }
+
+    /**
+     * Where the settings of an assignment say its brief is.
+     *
+     * @param  int $assignment Assignment instance.
+     * @return string The path, empty when the settings say nothing.
+     * @throws dml_exception If the settings cannot be read.
+     */
+    public static function remembered_path(int $assignment): string {
+        global $DB;
+
+        return (string) $DB->get_field('assign_plugin_config', 'value', [
+            'assignment' => $assignment,
+            'plugin' => 'tipnc',
+            'subtype' => 'assignsubmission',
+            'name' => self::CONFIG_BRIEFPATH,
+        ]);
+    }
+
     /**
      * Get tipnc enunciate information from the database
      *
@@ -62,6 +118,10 @@ class tipnc_enun {
         global $DB;
         try {
             $DB->insert_record(self::TABLE_TIPNC_ENUN, $data);
+
+            if (!empty($data->assignment) && !empty($data->path)) {
+                self::remember_path((int) $data->assignment, (string) $data->path);
+            }
         } catch (moodle_exception $e) {
             $assignment = empty($data->assignment) ? 0 : $data->assignment;
             $submission = empty($data->submission) ? null : $data->submission;
@@ -79,6 +139,7 @@ class tipnc_enun {
         global $DB;
         try {
             $DB->delete_records(self::TABLE_TIPNC_ENUN, ['assignment' => $instance]);
+            self::remember_path($instance, '');
         } catch (moodle_exception $e) {
             tipnc_error::log('tipnc_enun:delete', new error('2101', $e->getMessage()), $instance);
         }

@@ -36,4 +36,22 @@ $observers = [
         'eventname' => '\core\event\role_unassigned',
         'callback' => '\assignsubmission_tipnc\observer::role_unassigned',
     ],
+    // A restored, imported or duplicated assignment needs a copy of its brief.
+    [
+        'eventname' => '\core\event\course_restored',
+        'callback' => '\assignsubmission_tipnc\observer::course_restored',
+    ],
+    [
+        'eventname' => '\core\event\course_module_created',
+        'callback' => '\assignsubmission_tipnc\observer::course_module_created',
+    ],
+    // The brief goes only when the assignment does; a course reset keeps it.
+    [
+        'eventname' => '\core\event\course_module_deleted',
+        'callback' => '\assignsubmission_tipnc\observer::course_module_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_content_deleted',
+        'callback' => '\assignsubmission_tipnc\observer::course_content_deleted',
+    ],
 ];

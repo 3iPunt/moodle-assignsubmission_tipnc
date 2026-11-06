@@ -26,6 +26,7 @@ namespace assignsubmission_tipnc\models;
 
 use assignsubmission_tipnc\api\document;
 use assignsubmission_tipnc\api\nextcloud;
+use assignsubmission_tipnc\tipnc_enun;
 use dml_exception;
 use stdClass;
 
@@ -153,16 +154,18 @@ class cleanup {
     }
 
     /**
-     * Removes the documents of an assignment that is being deleted.
+     * Removes the drafts and submissions of an assignment.
+     *
+     * Core asks for this both when the assignment is deleted and when the course
+     * is reset, so the brief is left alone: see forget_briefs().
      *
      * @param  int $instance Assignment instance.
      * @return void
      * @throws dml_exception If the configuration cannot be read.
      */
-    public function on_assignment_deleted(int $instance): void {
+    public function on_submissions_deleted(int $instance): void {
         global $DB;
 
-        $document = new document($instance);
         $nextcloud = new nextcloud($instance);
         $delete = self::assignment_policy() === self::ASSIGN_DELETE;
         $context = ['assignment' => $instance];
@@ -183,12 +186,45 @@ class cleanup {
                 $nextcloud->revoke_access($file, $context + ['operation' => 'revoke_assignment']);
             }
         }
+    }
 
-        $enunciate = $document->get_enunciate();
-        if ($delete) {
-            $nextcloud->delete_file($enunciate, $context + ['operation' => 'delete_assignment']);
-        } else {
-            $nextcloud->revoke_access($enunciate, $context + ['operation' => 'revoke_assignment']);
+    /**
+     * Removes the briefs of assignments that no longer exist.
+     *
+     * The stored path is used, not the composed one: the course or the
+     * assignment may have been renamed since the brief was created.
+     *
+     * @param  int $instance Only this assignment, or 0 for every orphan.
+     * @return void
+     * @throws dml_exception If the tables cannot be read.
+     */
+    public function forget_briefs(int $instance = 0): void {
+        global $DB;
+
+        $sql = "SELECT e.assignment, e.path
+                  FROM {assignsubmission_tipnc_enun} e
+             LEFT JOIN {assign} a ON a.id = e.assignment
+                 WHERE a.id IS NULL";
+        $params = [];
+        if ($instance > 0) {
+            $sql .= " AND e.assignment = :instance";
+            $params['instance'] = $instance;
+        }
+
+        $delete = self::assignment_policy() === self::ASSIGN_DELETE;
+
+        foreach ($DB->get_records_sql($sql, $params) as $brief) {
+            $assignment = (int) $brief->assignment;
+            if (!empty($brief->path)) {
+                $nextcloud = new nextcloud($assignment);
+                $context = ['assignment' => $assignment];
+                if ($delete) {
+                    $nextcloud->delete_file($brief->path, $context + ['operation' => 'delete_assignment']);
+                } else {
+                    $nextcloud->revoke_access($brief->path, $context + ['operation' => 'revoke_assignment']);
+                }
+            }
+            tipnc_enun::delete($assignment);
         }
     }
 }

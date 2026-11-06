@@ -105,13 +105,13 @@ final class logger_test extends advanced_testcase {
      */
     public function test_the_service_password_is_taken_out_of_the_answer(): void {
         logger::error(code::SYSTEM_UNAUTHORISED, 'test', [
-            'responsebody' => 'La contraseña ' . self::SECRET . ' no es válida',
+            'responsebody' => 'The password ' . self::SECRET . ' is not valid',
         ]);
 
         $row = $this->last();
 
         $this->assertStringNotContainsString(self::SECRET, $row->responsebody);
-        $this->assertStringContainsString('no es válida', $row->responsebody);
+        $this->assertStringContainsString('is not valid', $row->responsebody);
     }
 
     /**
@@ -163,13 +163,13 @@ final class logger_test extends advanced_testcase {
      */
     public function test_a_repetition_does_not_wipe_the_diagnosis(): void {
         logger::warning(code::SHARE_FAILED, 'share_draft', [
-            'method' => 'test', 'assignment' => 1, 'responsebody' => 'el motivo original',
+            'method' => 'test', 'assignment' => 1, 'responsebody' => 'the original reason',
         ]);
 
         logger::warning(code::SHARE_FAILED, 'share_draft', [
             'method' => 'test', 'assignment' => 1,
         ]);
 
-        $this->assertStringContainsString('el motivo original', $this->last()->responsebody);
+        $this->assertStringContainsString('the original reason', $this->last()->responsebody);
     }
 }
