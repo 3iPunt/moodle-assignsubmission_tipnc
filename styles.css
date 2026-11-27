@@ -1914,3 +1914,163 @@ button.tipnc-log__counter:active {
     height: 11px;
     width: 11px;
 }
+
+/* ---------- Modo oscuro de Boost (Moodle 5.3, MDL-68037) ----------
+   Solo cuando el usuario lo elige: nunca en 4.5 ni 5.1. Las reglas de arriba no cambian, así que el
+   modo claro queda igual. Aquí la paleta de cada ámbito apunta a la de Boost, que en oscuro invierte
+   su escala de grises y calcula los colores de estado para que se lean sobre fondo oscuro. Además, cada
+   color escrito a mano o mezclado con negro tiene su regla oscura. No cambian los rellenos saturados
+   con texto blanco, las sombras ni el velo del panel lateral. */
+
+[data-bs-theme="dark"] .tipnc-log,
+[data-bs-theme="dark"] .tipnc-enunciate,
+[data-bs-theme="dark"] .tipnc-subm,
+[data-bs-theme="dark"] .tipnc-unavailable,
+[data-bs-theme="dark"] .tipnc-frame__readonly {
+    --tip-neutral-25: var(--bs-gray-100);
+    --tip-neutral-50: var(--bs-gray-100);
+    --tip-neutral-100: var(--bs-gray-200);
+    --tip-neutral-200: var(--bs-gray-300);
+    --tip-neutral-400: var(--bs-gray-500);
+    --tip-neutral-500: var(--bs-gray-600);
+    --tip-neutral-800: var(--bs-gray-900);
+    --tip-neutral-900: var(--bs-gray-900);
+    /* Tintes de marca: fondos al 20 % y bordes al 38 % de su color; texto aclarado un 45 %. */
+    --tip-orange-50: #33302f;
+    --tip-orange-200: #61473f;
+    --tip-orange-700: #d48876;
+    --tip-success-50: var(--mds-bg-feedback-success-light, var(--bs-success-bg-subtle));
+    --tip-warning-50: var(--mds-bg-feedback-warning-light, var(--bs-warning-bg-subtle));
+    --tip-warning-200: var(--bs-warning-border-subtle);
+    --tip-danger-50: var(--mds-bg-feedback-danger-light, var(--bs-danger-bg-subtle));
+    --tip-info-50: var(--mds-bg-feedback-info-light, var(--bs-info-bg-subtle));
+}
+
+/* Superficies blancas escritas a mano. */
+[data-bs-theme="dark"] .tipnc-log,
+[data-bs-theme="dark"] .tipnc-log__counter,
+[data-bs-theme="dark"] .tipnc-log__search,
+[data-bs-theme="dark"] .tipnc-log__action,
+[data-bs-theme="dark"] .tipnc-log__detail,
+[data-bs-theme="dark"] .tipnc-log__drawer-panel,
+[data-bs-theme="dark"] .tipnc-enunciate,
+[data-bs-theme="dark"] .tipnc-subm,
+[data-bs-theme="dark"] .tipnc-viewer:fullscreen {
+    background: var(--bs-white);
+}
+
+/* Los estados que la regla anterior taparía: misma especificidad, más abajo en el fichero. */
+[data-bs-theme="dark"] .tipnc-log__action:hover,
+[data-bs-theme="dark"] .tipnc-log__detail:hover {
+    background: var(--tip-neutral-25);
+}
+
+[data-bs-theme="dark"] .tipnc-log__detail:hover {
+    border-color: var(--bs-gray-400);
+}
+
+[data-bs-theme="dark"] .tipnc-log__action--danger:hover {
+    background: var(--tip-danger-50);
+    color: var(--bs-danger-text-emphasis);
+}
+
+/* Texto de estado: en claro, el color de estado mezclado con negro; en oscuro, el de Boost. */
+[data-bs-theme="dark"] .tipnc-log__status--ok,
+[data-bs-theme="dark"] .tipnc-log__http--ok,
+[data-bs-theme="dark"] .tipnc-log__empty-good,
+[data-bs-theme="dark"] .tipnc-enunciate__badge--ready,
+[data-bs-theme="dark"] .tipnc-subm--submitted .tipnc-subm__state {
+    color: var(--bs-success-text-emphasis);
+}
+
+[data-bs-theme="dark"] .tipnc-log__status--down,
+[data-bs-theme="dark"] .tipnc-log__http--ko,
+[data-bs-theme="dark"] .tipnc-badge--error {
+    color: var(--bs-danger-text-emphasis);
+}
+
+[data-bs-theme="dark"] .tipnc-badge--warning,
+[data-bs-theme="dark"] .tipnc-enunciate__badge--pending,
+[data-bs-theme="dark"] .tipnc-subm--draft .tipnc-subm__state {
+    color: var(--bs-warning-text-emphasis);
+}
+
+[data-bs-theme="dark"] .tipnc-badge--info,
+[data-bs-theme="dark"] .tipnc-subm--enun .tipnc-subm__state {
+    color: var(--bs-info-text-emphasis);
+}
+
+/* Contador oscuro con texto blanco: en oscuro su gris se aclara, así que el texto pasa a oscuro. */
+[data-bs-theme="dark"] .tipnc-log__count {
+    color: var(--bs-white);
+}
+
+/* Modal de confirmación y botón secundario (se pintan al final del body, fuera de los ámbitos). */
+[data-bs-theme="dark"] .tipnc-confirm__icon--danger {
+    background: var(--mds-bg-feedback-danger-light, var(--bs-danger-bg-subtle));
+    color: var(--bs-danger-text-emphasis);
+}
+
+[data-bs-theme="dark"] .tipnc-confirm__lead,
+[data-bs-theme="dark"] .tipnc-subm__title,
+[data-bs-theme="dark"] .tipnc-confirmsave__warning {
+    color: var(--bs-gray-900);
+}
+
+[data-bs-theme="dark"] .tipnc-confirm__hint,
+[data-bs-theme="dark"] .tipnc-subm__meta,
+[data-bs-theme="dark"] .tipnc-confirmsave__hint {
+    color: var(--bs-gray-600);
+}
+
+[data-bs-theme="dark"] .tipnc-modal .modal-footer .btn-secondary {
+    background: var(--bs-white);
+    border-color: var(--bs-gray-300);
+    color: var(--bs-gray-900);
+}
+
+/* Botón de pantalla completa del visor. */
+[data-bs-theme="dark"] .tipnc-frame__full {
+    background: var(--bs-white);
+    border-color: var(--bs-gray-300);
+    color: var(--bs-gray-900);
+}
+
+[data-bs-theme="dark"] .tipnc-frame__full:focus-visible {
+    background: var(--bs-white);
+    color: #d48876;
+}
+
+/* Avisos de guardado y de vista de respaldo. */
+[data-bs-theme="dark"] .tipnc-confirmsave,
+[data-bs-theme="dark"] .tipnc-frame__fallback {
+    background: var(--mds-bg-feedback-warning-light, var(--bs-warning-bg-subtle));
+}
+
+[data-bs-theme="dark"] .tipnc-confirmsave {
+    border-color: var(--bs-warning-border-subtle);
+    border-left-color: #e8a317;
+}
+
+[data-bs-theme="dark"] .tipnc-frame__fallback {
+    color: var(--bs-warning-text-emphasis);
+}
+
+/* Opción seleccionada del buscador de la página de errores. */
+[data-bs-theme="dark"] #page-mod-assign-submission-tipnc-view_errors .form-autocomplete-suggestions li[aria-selected="true"],
+[data-bs-theme="dark"] #page-mod-assign-submission-tipnc-view_errors .form-autocomplete-suggestions li:hover,
+[data-bs-theme="dark"] #page-mod-assign-submission-tipnc-view_errors [role="listbox"] [role="option"][aria-selected="true"],
+[data-bs-theme="dark"] #page-mod-assign-submission-tipnc-view_errors [role="listbox"] [role="option"]:hover {
+    background-color: var(--bs-gray-200);
+    color: var(--bs-gray-900);
+}
+
+/* Logo de Tresipunt: el normal tiene el texto oscuro; en oscuro se cambia por el blanco. */
+.tipnc-log__logo--dark,
+[data-bs-theme="dark"] .tipnc-log__logo--light {
+    display: none;
+}
+
+[data-bs-theme="dark"] .tipnc-log__logo--dark {
+    display: inline;
+}

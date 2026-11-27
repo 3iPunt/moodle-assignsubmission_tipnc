@@ -184,7 +184,13 @@ final class restored_test extends advanced_testcase {
         $this->setAdminUser();
 
         $cm = get_coursemodule_from_instance('assign', $this->assign->id);
-        $newcm = duplicate_module($this->course, get_fast_modinfo($this->course)->get_cm($cm->id));
+        // Moodle 5.2 deprecated duplicate_module() (MDL-86858) in favour of
+        // cmactions::duplicate(), which 4.5 and 5.1 do not have yet.
+        if (method_exists(\core_courseformat\local\cmactions::class, 'duplicate')) {
+            $newcm = \core_courseformat\formatactions::cm($this->course->id)->duplicate($cm->id);
+        } else {
+            $newcm = duplicate_module($this->course, get_fast_modinfo($this->course)->get_cm($cm->id));
+        }
 
         $this->assertNotNull($newcm);
         $instance = (int) $newcm->instance;

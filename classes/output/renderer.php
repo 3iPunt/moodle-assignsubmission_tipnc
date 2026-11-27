@@ -21,6 +21,7 @@
  * @copyright   2021 Tresipunt
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 namespace assignsubmission_tipnc\output;
 
 use moodle_exception;

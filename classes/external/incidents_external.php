@@ -34,11 +34,11 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use core_external\restricted_context_exception;
 use dml_exception;
 use invalid_parameter_exception;
 use moodle_exception;
 use required_capability_exception;
-use restricted_context_exception;
 
 /**
  * Web services of the incident log: filtering, detail and the filter pickers.

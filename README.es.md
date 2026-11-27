@@ -1,8 +1,8 @@
 <h1 align="center">NextCloud Submission</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-informational" alt="Versión">
-  <a href="https://moodle.org"><img src="https://img.shields.io/badge/Moodle-4.5%20--%205.1-orange?logo=moodle" alt="Moodle"></a>
+  <img src="https://img.shields.io/badge/version-2.2.0-informational" alt="Versión">
+  <a href="https://moodle.org"><img src="https://img.shields.io/badge/Moodle-4.5%20--%205.3-orange?logo=moodle" alt="Moodle"></a>
   <img src="https://img.shields.io/badge/Workplace-4.5%2B-blue" alt="Moodle Workplace">
   <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white" alt="PHP">
   <img src="https://img.shields.io/badge/License-GPL--3.0-green" alt="Licencia">
@@ -234,7 +234,7 @@ siempre.
 
 | Requisito | Versión |
 |---|---|
-| Moodle | 4.5 – 5.1 (Moodle Workplace 4.5+) |
+| Moodle | 4.5 – 5.3 (Moodle Workplace 4.5+) |
 | PHP | 8.1+ |
 | Otros plugins | No requiere |
 | NextCloud | Una instancia alcanzable y una cuenta de servicio capaz de crear y compartir documentos |

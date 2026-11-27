@@ -29,6 +29,7 @@
     Example context (json):
     {
         "logourl": "#",
+        "logourlwhite": "#",
         "connection": {"state": "ok", "label": "NextCloud responde", "detail": "comprobado ahora"},
         "counters": {"lastday": 4, "assignments": 3, "users": 2, "total": 12, "oldest": "17/07/26"},
         "severities": [{"value": "", "label": "Todas", "active": true}],
@@ -52,7 +53,8 @@
                 <span class="tipnc-log__dot" aria-hidden="true"></span>
                 <span><strong>{{connection.label}}</strong> {{connection.detail}}</span>
             </div>
-            <img src="{{logourl}}" alt="Tresipunt" class="tipnc-log__logo">
+            <img src="{{logourl}}" alt="Tresipunt" class="tipnc-log__logo tipnc-log__logo--light">
+            <img src="{{logourlwhite}}" alt="Tresipunt" class="tipnc-log__logo tipnc-log__logo--dark">
         </div>
     </div>
 

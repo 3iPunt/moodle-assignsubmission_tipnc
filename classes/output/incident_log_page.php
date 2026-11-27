@@ -76,6 +76,7 @@ class incident_log_page implements renderable, templatable {
     public function export_for_template(renderer_base $output): array {
         return [
             'logourl' => $output->image_url('tresipunt_logo', 'assignsubmission_tipnc')->out(false),
+            'logourlwhite' => $output->image_url('tresipunt_logo_white', 'assignsubmission_tipnc')->out(false),
             'connection' => $this->export_connection(),
             'counters' => [
                 'lastday' => $this->counters['lastday'] ?? 0,

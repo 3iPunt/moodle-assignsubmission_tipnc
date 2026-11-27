@@ -2,6 +2,27 @@
 
 All notable changes to this plugin are documented here.
 
+## 2.2.0 — 2026-11-26 (`2026112600`)
+
+Moodle 5.3 support and dark mode. Supported: 4.5 – 5.3. No changes to settings,
+strings, web services or the database.
+
+### Added
+
+- **Moodle 5.3 support.** The plugin now declares Moodle 4.5 to 5.3. Nothing it
+  uses was removed in Moodle 5.2 or 5.3, so no behaviour changes.
+- **Dark mode.** When colour modes are enabled in Boost (Moodle 5.3) and a user
+  picks the dark one, the incident log, the submission and brief panels, the
+  confirmation dialogs and the document viewer follow it: surfaces, text,
+  borders and status colours take the dark palette, and the incident log shows
+  the white Tresipunt logo. Light mode looks exactly as before.
+
+### Changed
+
+- **Continuous integration covers Moodle 4.5, 5.1 and 5.3.** Bitbucket runs the
+  three branches in parallel; GitHub runs 4.5, 5.1 and 5.3 with PHP 8.1 to 8.4
+  on PostgreSQL and MariaDB. Neither pipeline ships in the release package.
+
 ## 2.1.0 — 2026-11-05 (`2026110500`)
 
 Answers the Moodle Marketplace review. Adds backup and restore, closes a hole in
